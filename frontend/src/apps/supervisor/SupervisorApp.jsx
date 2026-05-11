@@ -28,10 +28,16 @@ export default function SupervisorApp() {
   const [selectedAssignment, setSelectedAssignment] = useState(null)
   const [tab, setTab] = useState('dashboard')
   const [dispatchTarget, setDispatchTarget] = useState(null) // SOS to manually dispatch
+  const [clock, setClock] = useState(() => new Date().toLocaleTimeString())
 
   useEffect(() => {
     api.getQueue().then(setPackets).catch(() => {})
     api.getResponders().then(setResponders).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => setClock(new Date().toLocaleTimeString()), 1000)
+    return () => clearInterval(id)
   }, [])
 
   const wsFactory = useCallback(() => {
@@ -107,7 +113,7 @@ export default function SupervisorApp() {
             {wsStatus}
           </span>
           <span className="text-xs text-gray-500 font-mono">
-            {new Date().toLocaleTimeString()}
+            {clock}
           </span>
         </div>
       </div>

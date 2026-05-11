@@ -3,7 +3,19 @@ import { X, ArrowRight } from 'lucide-react'
 export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
   if (!packet) return null
 
-  const barWidth = Math.round(packet.modelScore * 100)
+  const score = packet.model_score ?? 0
+  const barWidth = Math.round(score * 100)
+
+  // Build a hop path from hops count
+  const hopNodes = ['Victim']
+  for (let i = 1; i <= (packet.hops ?? 1); i++) hopNodes.push(`P-${String(i * 11 + 12).padStart(2, '0')}`)
+  hopNodes.push('R-114')
+
+  const tags = [
+    packet.has_audio && 'audio:distress',
+    packet.has_image && 'image:attached',
+    packet.emergency_type && `type:${packet.emergency_type}`,
+  ].filter(Boolean)
 
   return (
     <div className="absolute inset-0 flex flex-col justify-end z-10">
@@ -21,24 +33,26 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
             {packet.severity}
           </span>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] text-gray-500">{packet.pktId}</span>
-            <span className="font-mono text-[10px] text-gray-500">{packet.time}</span>
+            <span className="font-mono text-[10px] text-gray-500">{packet.packet_code}</span>
+            <span className="font-mono text-[10px] text-gray-500">
+              {new Date(packet.created_at).toLocaleTimeString()}
+            </span>
           </div>
         </div>
 
         <p className="text-lg font-bold text-white mb-1">
-          {packet.id} · {packet.victimDesc}
+          {packet.victim_code} · {packet.emergency_type}
         </p>
-        <p className="text-sm text-gray-400 mb-4">"{packet.message}"</p>
+        <p className="text-sm text-gray-400 mb-4">"{packet.message || 'No message'}"</p>
 
         {/* Model score */}
         <div className="bg-ops rounded-xl p-3 mb-4">
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[10px] uppercase tracking-widest text-gray-500">Model</p>
-            <span className="font-mono text-[10px] text-gray-500">gemma-edge q4</span>
+            <p className="text-[10px] uppercase tracking-widest text-gray-500">AI Score</p>
+            <span className="font-mono text-[10px] text-gray-500">Gemma 4</span>
           </div>
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl font-black text-white">{packet.modelScore}</span>
+            <span className="text-2xl font-black text-white">{score.toFixed(2)}</span>
             <div className="flex-1 h-2 bg-ops-border rounded-full overflow-hidden">
               <div
                 className="h-full shimmer rounded-full"
@@ -46,34 +60,35 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
               />
             </div>
           </div>
-          {/* Tags */}
-          <div className="flex flex-wrap gap-1.5">
-            {packet.tags.map(tag => (
-              <span key={tag} className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-ops-border text-gray-400">
-                {tag}
-              </span>
-            ))}
-          </div>
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map(tag => (
+                <span key={tag} className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-ops-border text-gray-400">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Mesh path */}
         <div className="mb-5">
-          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Path</p>
+          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+            Relay path · {packet.hops ?? 0} hop{packet.hops !== 1 ? 's' : ''}
+          </p>
           <div className="flex items-center gap-1 flex-wrap">
-            {packet.path.map((node, i) => {
+            {hopNodes.map((node, i) => {
               const isFirst = i === 0
-              const isLast = i === packet.path.length - 1
+              const isLast = i === hopNodes.length - 1
               return (
                 <div key={`${node}-${i}`} className="flex items-center gap-1">
-                  <span
-                    className={`font-mono text-xs px-2 py-0.5 rounded-lg border ${
-                      isFirst
-                        ? 'border-gray-600 text-gray-400 bg-ops'
-                        : isLast
-                        ? 'border-relay text-relay bg-relay/10'
-                        : 'border-ops-border text-gray-500 bg-ops'
-                    }`}
-                  >
+                  <span className={`font-mono text-xs px-2 py-0.5 rounded-lg border ${
+                    isFirst
+                      ? 'border-gray-600 text-gray-400 bg-ops'
+                      : isLast
+                      ? 'border-relay text-relay bg-relay/10'
+                      : 'border-ops-border text-gray-500 bg-ops'
+                  }`}>
                     {node}
                   </span>
                   {!isLast && <ArrowRight size={10} className="text-gray-600" />}
