@@ -25,6 +25,7 @@ pip-delete-this-directory.txt
 *.pem
 *.key
 *.cert
+backend/godseye
 
 # ── Node / Frontend ───────────────────────────────────────────────────────────
 node_modules/

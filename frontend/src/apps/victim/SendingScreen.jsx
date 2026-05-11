@@ -34,12 +34,10 @@ export default function SendingScreen({ onAck }) {
   const [doneIdx, setDoneIdx] = useState(-1)
   const [activeIdx, setActiveIdx] = useState(0)
   const [error, setError] = useState(null)
-  const calledRef = useRef(false)
+  const onAckRef = useRef(onAck)
+  onAckRef.current = onAck
 
   useEffect(() => {
-    if (calledRef.current) return
-    calledRef.current = true
-
     let cancelled = false
 
     const runFlow = async () => {
@@ -72,12 +70,12 @@ export default function SendingScreen({ onAck }) {
         setDoneIdx(idx)
       }
 
-      if (!cancelled) onAck(result)
+      if (!cancelled) onAckRef.current(result)
     }
 
     runFlow()
     return () => { cancelled = true }
-  }, [onAck])
+  }, [])
 
   return (
     <div className="flex flex-col h-full bg-cream">
