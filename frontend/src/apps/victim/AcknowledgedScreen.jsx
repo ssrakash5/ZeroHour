@@ -1,9 +1,16 @@
 import { ShieldCheck } from 'lucide-react'
 
-export default function AcknowledgedScreen({ onReset }) {
+export default function AcknowledgedScreen({ result, onReset }) {
+  const assignment = result?.assignment
+  const responderName = assignment?.responder_name ?? 'A. Kumar'
+  const responderCode = assignment?.responder_code ?? 'R-114'
+  const responderRole = assignment?.responder_role ?? 'medic'
+  const responderSector = assignment?.responder_sector ?? 14
+  const eta = assignment?.eta_minutes ?? '—'
+  const distance = assignment?.distance_m ?? '—'
+
   return (
     <div className="flex flex-col h-full bg-cream fade-in">
-      {/* Status bar */}
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <span className="flex items-center gap-1.5 text-xs text-green-600 font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
@@ -13,14 +20,14 @@ export default function AcknowledgedScreen({ onReset }) {
       </div>
 
       <div className="flex-1 flex flex-col px-6 pt-6">
-        <p className="text-[10px] tracking-[0.2em] font-mono uppercase mb-1">
-          <span className="text-relay">Relayed · Acknowledged</span>
+        <p className="text-[10px] tracking-[0.2em] font-mono uppercase mb-1 text-relay">
+          Relayed · Acknowledged
         </p>
         <h1 className="text-[32px] font-extrabold text-gray-900 leading-tight mb-2">
           Help is coming.
         </h1>
         <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-          R-114 acknowledged your packet.<br />Routing now.
+          {responderCode} acknowledged your packet.<br />Routing now.
         </p>
 
         {/* Responder card */}
@@ -30,8 +37,12 @@ export default function AcknowledgedScreen({ onReset }) {
               <ShieldCheck size={22} className="text-relay" strokeWidth={2} />
             </div>
             <div>
-              <p className="font-bold text-gray-900 text-[15px]">R-114 · A. Kumar</p>
-              <p className="text-xs text-gray-400">medic · sector 14</p>
+              <p className="font-bold text-gray-900 text-[15px]">
+                {responderCode} · {responderName}
+              </p>
+              <p className="text-xs text-gray-400">
+                {responderRole} · sector {responderSector}
+              </p>
             </div>
           </div>
 
@@ -39,19 +50,25 @@ export default function AcknowledgedScreen({ onReset }) {
             <div>
               <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-0.5">ETA</p>
               <p className="text-2xl font-extrabold text-gray-900">
-                8 <span className="text-base font-semibold text-gray-400">min</span>
+                {eta} <span className="text-base font-semibold text-gray-400">min</span>
               </p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-0.5">Distance</p>
               <p className="text-2xl font-extrabold text-gray-900">
-                340 <span className="text-base font-semibold text-gray-400">m</span>
+                {typeof distance === 'number' ? distance : distance}{' '}
+                <span className="text-base font-semibold text-gray-400">m</span>
               </p>
             </div>
           </div>
+
+          {assignment?.ai_reason && (
+            <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-100 italic">
+              "{assignment.ai_reason}"
+            </p>
+          )}
         </div>
 
-        {/* While you wait */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-3">While you wait</p>
           <ul className="space-y-2 text-sm text-gray-700">
@@ -67,7 +84,6 @@ export default function AcknowledgedScreen({ onReset }) {
         </div>
       </div>
 
-      {/* Demo reset */}
       <div className="px-6 pb-6 pt-4">
         <button
           onClick={onReset}

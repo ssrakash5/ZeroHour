@@ -3,21 +3,25 @@ import HomeScreen from './HomeScreen'
 import SendingScreen from './SendingScreen'
 import AcknowledgedScreen from './AcknowledgedScreen'
 
-const SCREENS = { home: 'home', sending: 'sending', acknowledged: 'acknowledged' }
-
 export default function VictimApp() {
-  const [screen, setScreen] = useState(SCREENS.home)
+  const [screen, setScreen] = useState('home')
+  const [result, setResult] = useState(null) // { sos, assignment }
 
   return (
     <div className="h-full">
-      {screen === SCREENS.home && (
-        <HomeScreen onSend={() => setScreen(SCREENS.sending)} />
+      {screen === 'home' && (
+        <HomeScreen onSend={() => setScreen('sending')} />
       )}
-      {screen === SCREENS.sending && (
-        <SendingScreen onAck={() => setScreen(SCREENS.acknowledged)} />
+      {screen === 'sending' && (
+        <SendingScreen
+          onAck={(data) => { setResult(data); setScreen('acknowledged') }}
+        />
       )}
-      {screen === SCREENS.acknowledged && (
-        <AcknowledgedScreen onReset={() => setScreen(SCREENS.home)} />
+      {screen === 'acknowledged' && (
+        <AcknowledgedScreen
+          result={result}
+          onReset={() => { setResult(null); setScreen('home') }}
+        />
       )}
     </div>
   )
