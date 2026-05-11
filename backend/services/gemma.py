@@ -1,12 +1,17 @@
 """
-Gemma 4 triage layer.
+Gemma 4 triage layer — powered by Google AI Studio (Gemma 4 27B).
 Receives pre-scored candidates from the algorithmic layer.
-Its job: contextual reasoning over free text, audio/image signals,
-and nuanced multi-victim scenarios — not basic routing math.
+Its job: contextual reasoning over free text and nuanced multi-victim
+scenarios — not basic routing math.
 """
 import json
 import httpx
 from db.database import settings
+
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models"
+    "/{model}:generateContent?key={key}"
+)
 
 SYSTEM_PROMPT = """You are the final-decision AI in ZeroHour, a disaster response system.
 An algorithmic scorer has already ranked responders by role match, skill coverage, distance, battery, and sector.
@@ -49,11 +54,14 @@ def _format_candidates(candidates: list[dict]) -> str:
 
 async def triage_and_assign(sos: dict, ranked_candidates: list[dict]) -> dict:
     """
-    Call Gemma 4. Falls back to algorithm's top pick if Ollama unreachable.
-    `ranked_candidates` already contain composite_score and ontology from scorer.py.
+    Call Gemma 4 27B via Google AI Studio.
+    Falls back to algorithm's top pick if the API is unreachable or key is unset.
     """
     if not ranked_candidates:
         return {}
+
+    if not settings.GEMINI_API_KEY:
+        return _fallback(ranked_candidates)
 
     top = ranked_candidates[0]
     profile = top.get("ontology", {})
@@ -72,14 +80,18 @@ async def triage_and_assign(sos: dict, ranked_candidates: list[dict]) -> dict:
         candidates_block=_format_candidates(ranked_candidates),
     )
 
+    url = GEMINI_URL.format(model=settings.GEMINI_MODEL, key=settings.GEMINI_API_KEY)
+    body = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"responseMimeType": "application/json"},
+    }
+
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                f"{settings.OLLAMA_URL}/api/generate",
-                json={"model": settings.OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json"},
-            )
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, json=body)
             resp.raise_for_status()
-            result = json.loads(resp.json()["response"])
+            text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            result = json.loads(text)
             result["ai_available"] = True
             return result
     except Exception:
@@ -87,7 +99,7 @@ async def triage_and_assign(sos: dict, ranked_candidates: list[dict]) -> dict:
 
 
 def _fallback(ranked_candidates: list[dict]) -> dict:
-    """Algorithm top pick — used when Ollama is unreachable."""
+    """Algorithm top pick — used when AI Studio is unreachable or key is unset."""
     best = ranked_candidates[0]
     return {
         "assign": best["code"],
