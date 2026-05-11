@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from db.database import create_tables
-from routers import sos, responders, ws
+from routers import sos, responders, ws, ontology, dispatch
 from seed import seed_responders
 
 
@@ -25,6 +25,8 @@ app.add_middleware(
 
 app.include_router(sos.router, prefix="/sos", tags=["SOS"])
 app.include_router(responders.router, prefix="/responders", tags=["Responders"])
+app.include_router(ontology.router, prefix="/ontology", tags=["Ontology"])
+app.include_router(dispatch.router, prefix="/sos", tags=["Dispatch"])
 app.include_router(ws.router, tags=["WebSocket"])
 
 

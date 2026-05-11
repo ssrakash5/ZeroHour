@@ -1,14 +1,14 @@
 from __future__ import annotations
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from db.models import Severity, EmergencyType, SOSStatus, ResponderRole, ResponderStatus, AssignmentStatus
 
 
 # ── SOS ──────────────────────────────────────────────────────────────────────
 
 class SOSCreate(BaseModel):
-    victim_code: str = Field(..., example="V-2891")
+    victim_code: str
     lat: float
     lng: float
     severity: Severity
@@ -38,10 +38,26 @@ class SOSOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AssignmentBrief(BaseModel):
+    id: str
+    responder_code: str | None
+    responder_name: str | None
+    responder_role: str | None
+    responder_sector: int | None
+    eta_minutes: int | None
+    distance_m: int | None
+    ai_reason: str | None
+
+
+class SOSWithAssignment(BaseModel):
+    sos: SOSOut
+    assignment: AssignmentBrief | None
+
+
 # ── Responder ─────────────────────────────────────────────────────────────────
 
 class ResponderCreate(BaseModel):
-    code: str = Field(..., example="R-114")
+    code: str
     name: str
     role: ResponderRole
     sector: int
@@ -83,10 +99,3 @@ class AssignmentOut(BaseModel):
     assigned_at: datetime
 
     model_config = {"from_attributes": True}
-
-
-# ── WebSocket events ──────────────────────────────────────────────────────────
-
-class WSEvent(BaseModel):
-    event: str
-    payload: dict
