@@ -52,6 +52,7 @@ export default function OntologyPanel({ assignment }) {
   const composite = assignment.composite_score
   const aiAvailable = assignment.ai_available
   const override = assignment.ai_override
+  const triage = assignment.triage
 
   return (
     <div className="h-full overflow-y-auto px-4 py-4 space-y-4 fade-in">
@@ -82,6 +83,23 @@ export default function OntologyPanel({ assignment }) {
       </div>
 
       {/* AI Reason */}
+      {triage?.reason && (
+        <div className="bg-ops-card border border-ops-border rounded-xl p-3">
+          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5 flex items-center gap-1">
+            <AlertTriangle size={10} /> Criticality assignment
+          </p>
+          <p className="text-sm text-gray-300">
+            {triage.severity} / {triage.emergency_type}
+          </p>
+          <p className="mt-1 text-sm text-gray-400">{triage.reason}</p>
+          {triage.confidence && (
+            <p className="text-[10px] font-mono text-gray-500 mt-1">
+              confidence: {(triage.confidence * 100).toFixed(0)}%
+            </p>
+          )}
+        </div>
+      )}
+
       {assignment.ai_reason && (
         <div className="bg-ops-card border border-ops-border rounded-xl p-3">
           <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5 flex items-center gap-1">

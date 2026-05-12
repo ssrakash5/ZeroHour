@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { ShieldCheck, Activity, Users, LayoutDashboard, MapPin } from 'lucide-react'
+import { ShieldCheck, Activity, Users, LayoutDashboard } from 'lucide-react'
 import LiveMap from '../../components/LiveMap'
 import { api } from '../../api'
 import { useWebSocket } from '../../hooks/useWebSocket'
@@ -20,6 +20,22 @@ function StatCard({ label, value, sub, color }) {
   )
 }
 
+function extractField(message, label) {
+  const line = (message || '')
+    .split('\n')
+    .find((entry) => entry.startsWith(`${label}:`))
+  return line ? line.slice(label.length + 1).trim() : ''
+}
+
+function packetPreview(packet) {
+  return (
+    extractField(packet.message, 'Voice transcript')
+    || extractField(packet.message, 'Situation')
+    || packet.message
+    || '-'
+  )
+}
+
 export default function SupervisorApp() {
   const [packets, setPackets] = useState([])
   const [assignments, setAssignments] = useState([])
@@ -27,7 +43,7 @@ export default function SupervisorApp() {
   const [wsStatus, setWsStatus] = useState('connecting')
   const [selectedAssignment, setSelectedAssignment] = useState(null)
   const [tab, setTab] = useState('dashboard')
-  const [dispatchTarget, setDispatchTarget] = useState(null) // SOS to manually dispatch
+  const [dispatchTarget, setDispatchTarget] = useState(null)
   const [clock, setClock] = useState(() => new Date().toLocaleTimeString())
 
   useEffect(() => {
@@ -49,44 +65,42 @@ export default function SupervisorApp() {
 
   useWebSocket(wsFactory, (msg) => {
     if (msg.event === 'sos:new') {
-      setPackets(prev => {
-        if (prev.find(p => p.id === msg.payload.id)) return prev
+      setPackets((prev) => {
+        if (prev.find((p) => p.id === msg.payload.id)) return prev
         return [msg.payload, ...prev]
       })
     }
     if (msg.event === 'assignment:new') {
-      setAssignments(prev => [{ ...msg.payload, ts: Date.now() }, ...prev].slice(0, 20))
-      setPackets(prev =>
-        prev.map(p => p.id === msg.payload.sos?.id ? { ...p, status: 'assigned' } : p)
+      setAssignments((prev) => [{ ...msg.payload, ts: Date.now() }, ...prev].slice(0, 20))
+      setPackets((prev) =>
+        prev.map((p) => (p.id === msg.payload.sos?.id ? { ...p, status: 'assigned' } : p)),
       )
     }
     if (msg.event === 'location:update') {
-      setResponders(prev =>
-        prev.map(r =>
+      setResponders((prev) =>
+        prev.map((r) =>
           r.code === msg.payload.responder_code
             ? { ...r, lat: msg.payload.lat, lng: msg.payload.lng }
-            : r
-        )
+            : r,
+        ),
       )
     }
   })
 
-  const pending = packets.filter(p => p.status === 'pending')
-  const assigned = packets.filter(p => p.status === 'assigned')
-  const critical = packets.filter(p => p.severity === 'critical' && p.status === 'pending')
-  const available = responders.filter(r => r.status === 'available')
+  const pending = packets.filter((p) => p.status === 'pending')
+  const assigned = packets.filter((p) => p.status === 'assigned')
+  const critical = packets.filter((p) => p.severity === 'critical' && p.status === 'pending')
+  const available = responders.filter((r) => r.status === 'available')
 
   return (
     <div className="min-h-screen bg-ops text-white flex flex-col" style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* Header */}
       <div className="border-b border-ops-border px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Activity size={18} className="text-relay" />
             <span className="font-black text-lg tracking-tight">ZeroHour</span>
-            <span className="text-gray-600 text-sm">· Supervisor</span>
+            <span className="text-gray-600 text-sm">- Supervisor</span>
           </div>
-          {/* Tab switcher */}
           <div className="flex items-center gap-1 bg-ops rounded-lg p-1 border border-ops-border ml-4">
             {[
               { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
@@ -108,209 +122,207 @@ export default function SupervisorApp() {
         <div className="flex items-center gap-4">
           <span className={`flex items-center gap-1.5 text-xs font-mono ${
             wsStatus === 'live' ? 'text-green-400' : 'text-yellow-400'
-          }`}>
+          }`}
+          >
             <span className={`w-1.5 h-1.5 rounded-full ${wsStatus === 'live' ? 'bg-green-400' : 'bg-yellow-400 animate-pulse'}`} />
             {wsStatus}
           </span>
-          <span className="text-xs text-gray-500 font-mono">
-            {clock}
-          </span>
+          <span className="text-xs text-gray-500 font-mono">{clock}</span>
         </div>
       </div>
 
-      {/* Manual dispatch modal */}
       {dispatchTarget && (
         <ManualDispatchModal
           sos={dispatchTarget}
           responders={responders}
           onClose={() => setDispatchTarget(null)}
-          onDispatched={({ sos, responder }) => {
-            setPackets(prev => prev.map(p => p.id === sos.id ? { ...p, status: 'assigned' } : p))
+          onDispatched={({ sos }) => {
+            setPackets((prev) => prev.map((p) => (p.id === sos.id ? { ...p, status: 'assigned' } : p)))
             setDispatchTarget(null)
           }}
         />
       )}
 
-      {/* Teams tab */}
       {tab === 'teams' && (
         <div className="flex-1 overflow-hidden">
           <TeamsPanel
             responders={responders}
-            onTeamAdded={(r) => setResponders(prev => [...prev, r])}
+            onTeamAdded={(r) => setResponders((prev) => [...prev, r])}
             onStatusChange={async (code, status) => {
               await api.setStatus(code, status)
-              setResponders(prev => prev.map(r => r.code === code ? { ...r, status } : r))
+              setResponders((prev) => prev.map((r) => (r.code === code ? { ...r, status } : r)))
             }}
           />
         </div>
       )}
 
-      {tab !== 'teams' && <div className="flex-1 flex gap-0 overflow-hidden">
-        {/* Left — SOS queue */}
-        <div className="w-96 border-r border-ops-border flex flex-col">
-          <div className="px-5 py-4 border-b border-ops-border">
-            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">SOS Queue</p>
-            <p className="text-3xl font-black text-white">
-              {pending.length} <span className="text-lg font-semibold text-gray-500">pending</span>
-            </p>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-            {packets.length === 0 && (
-              <p className="text-gray-600 text-sm text-center pt-8">No SOS packets yet.</p>
-            )}
-            {packets.map(pkt => (
-              <div
-                key={pkt.id}
-                className={`border rounded-xl p-3 ${SEV_BG[pkt.severity] || SEV_BG.low}`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span
-                    className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white uppercase"
-                    style={{ backgroundColor: SEV_COLOR[pkt.severity] || '#666' }}
-                  >
-                    {pkt.severity}
-                  </span>
-                  <span className={`text-[10px] font-mono ${pkt.status === 'assigned' ? 'text-relay' : 'text-gray-500'}`}>
-                    {pkt.status}
-                  </span>
-                </div>
-                <p className="text-sm font-semibold text-white">{pkt.victim_code} · {pkt.emergency_type}</p>
-                <p className="text-xs text-gray-400 mt-0.5 truncate">{pkt.message || '—'}</p>
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-[10px] font-mono text-gray-600">
-                    {new Date(pkt.created_at).toLocaleTimeString()}
-                  </p>
-                  {pkt.status === 'pending' && (
-                    <button
-                      onClick={() => setDispatchTarget(pkt)}
-                      className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-relay/40 text-relay hover:bg-relay/10 transition-colors"
-                    >
-                      Manual dispatch
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Center — Stats + Live Map + Assignment feed */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Stats row */}
-          <div className="grid grid-cols-4 gap-3 p-4 border-b border-ops-border shrink-0">
-            <StatCard label="Pending SOS" value={pending.length} color="#E84040" sub="awaiting assignment" />
-            <StatCard label="Critical" value={critical.length} color="#E84040" sub="unassigned" />
-            <StatCard label="Assigned" value={assigned.length} color="#00C9D4" sub="en route" />
-            <StatCard label="Available" value={available.length} color="#22C55E" sub={`of ${responders.length}`} />
-          </div>
-
-          {/* Live Map — takes up 60% of center */}
-          <div className="relative border-b border-ops-border" style={{ flex: '0 0 60%' }}>
-            <div className="absolute top-2 left-2 z-10 flex gap-2 pointer-events-none">
-              <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
-                <span className="w-2 h-2 rounded-full bg-critical inline-block" /> Critical SOS
-              </span>
-              <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
-                <span className="w-2 h-2 rounded-full bg-urgent inline-block" /> Urgent SOS
-              </span>
-              <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
-                <span className="w-2 h-2 rounded-full bg-relay inline-block" /> Responder
-              </span>
+      {tab !== 'teams' && (
+        <div className="flex-1 flex gap-0 overflow-hidden">
+          <div className="w-96 border-r border-ops-border flex flex-col">
+            <div className="px-5 py-4 border-b border-ops-border">
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">SOS Queue</p>
+              <p className="text-3xl font-black text-white">
+                {pending.length} <span className="text-lg font-semibold text-gray-500">pending</span>
+              </p>
             </div>
-            <LiveMap
-              packets={packets}
-              responders={responders}
-              assignments={assignments}
-              height="100%"
-              onSOSClick={(pkt) => setDispatchTarget(prev => prev?.id === pkt.id ? null : pkt)}
-            />
-          </div>
 
-          {/* Assignment feed — bottom 40% */}
-          <div className="flex-1 overflow-y-auto px-4 py-3">
-            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
-              Live Assignment Feed
-            </p>
-            {assignments.length === 0 && (
-              <p className="text-gray-600 text-sm">Assignments appear here in real-time.</p>
-            )}
-            <div className="space-y-2">
-              {assignments.map((a, i) => (
-                <button
-                  key={`${a.assignment_id}-${i}`}
-                  onClick={() => setSelectedAssignment(a)}
-                  className="flex gap-3 w-full text-left fade-in group"
-                >
-                  <div className={`w-px self-stretch shrink-0 ${selectedAssignment?.assignment_id === a.assignment_id ? 'bg-relay' : 'bg-relay/30'}`} />
-                  <div className={`bg-ops-card border rounded-xl p-3 flex-1 transition-colors ${selectedAssignment?.assignment_id === a.assignment_id ? 'border-relay/50' : 'border-ops-border group-hover:border-relay/30'}`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <ShieldCheck size={12} className="text-relay" />
-                      <span className="text-xs font-bold text-relay">{a.responder_code} → {a.sos?.victim_code}</span>
-                      <span className="text-[10px] text-gray-500 ml-auto font-mono">
-                        {new Date(a.ts).toLocaleTimeString()}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-400">
-                      ETA {a.eta_minutes ?? '—'} min · {a.distance_m ?? '—'} m
-                      {a.composite_score !== undefined && ` · score ${(a.composite_score * 100).toFixed(0)}/100`}
-                      {a.ai_available ? ' · Gemma 4 ✓' : ' · algo'}
-                    </p>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {packets.length === 0 && (
+                <p className="text-gray-600 text-sm text-center pt-8">No SOS packets yet.</p>
+              )}
+              {packets.map((pkt) => (
+                <div key={pkt.id} className={`border rounded-xl p-3 ${SEV_BG[pkt.severity] || SEV_BG.low}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white uppercase"
+                      style={{ backgroundColor: SEV_COLOR[pkt.severity] || '#666' }}
+                    >
+                      {pkt.severity}
+                    </span>
+                    <span className={`text-[10px] font-mono ${pkt.status === 'assigned' ? 'text-relay' : 'text-gray-500'}`}>
+                      {pkt.status}
+                    </span>
                   </div>
-                </button>
+                  <p className="text-sm font-semibold text-white">{pkt.victim_code} - {pkt.emergency_type}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{packetPreview(pkt)}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {pkt.has_audio && (
+                      <span className="rounded-full border border-relay/30 bg-relay/10 px-2 py-0.5 text-[10px] font-mono text-relay">
+                        voice
+                      </span>
+                    )}
+                    {pkt.has_image && (
+                      <span className="rounded-full border border-gray-700 bg-black/20 px-2 py-0.5 text-[10px] font-mono text-gray-300">
+                        photo
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-[10px] font-mono text-gray-600">
+                      {new Date(pkt.created_at).toLocaleTimeString()}
+                    </p>
+                    {pkt.status === 'pending' && (
+                      <button
+                        onClick={() => setDispatchTarget(pkt)}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-relay/40 text-relay hover:bg-relay/10 transition-colors"
+                      >
+                        Manual dispatch
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Right — Responder roster + Ontology panel */}
-        <div className="w-80 border-l border-ops-border flex flex-col">
-          {/* Roster (top half) */}
-          <div className="border-b border-ops-border flex flex-col" style={{ maxHeight: '40%' }}>
-            <div className="px-4 py-3 border-b border-ops-border">
-              <p className="text-[10px] uppercase tracking-widest text-gray-500">Responders</p>
-            </div>
-            <div className="overflow-y-auto px-3 py-2 space-y-1.5">
-              {responders.map(r => {
-                const statusColor = {
-                  available: 'text-green-400',
-                  en_route: 'text-relay',
-                  busy: 'text-urgent',
-                  off_duty: 'text-gray-600',
-                }[r.status] || 'text-gray-500'
-
-                return (
-                  <div key={r.id} className="bg-ops-card border border-ops-border rounded-xl px-3 py-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-white font-mono">{r.code}</span>
-                      <span className={`text-[10px] font-mono ${statusColor}`}>{r.status}</span>
-                    </div>
-                    <p className="text-xs text-gray-500">{r.name} · {r.role} · S{r.sector}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className="flex-1 h-1 bg-ops rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-green-500" style={{ width: `${r.battery}%` }} />
-                      </div>
-                      <span className="text-[10px] font-mono text-gray-500">{r.battery}%</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Ontology panel (bottom) */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-4 py-2 border-b border-ops-border">
-              <p className="text-[10px] uppercase tracking-widest text-gray-500">
-                Reasoning Chain {selectedAssignment ? '· ' + selectedAssignment.responder_code : ''}
-              </p>
+            <div className="grid grid-cols-4 gap-3 p-4 border-b border-ops-border shrink-0">
+              <StatCard label="Pending SOS" value={pending.length} color="#E84040" sub="awaiting assignment" />
+              <StatCard label="Critical" value={critical.length} color="#E84040" sub="unassigned" />
+              <StatCard label="Assigned" value={assigned.length} color="#00C9D4" sub="en route" />
+              <StatCard label="Available" value={available.length} color="#22C55E" sub={`of ${responders.length}`} />
             </div>
-            <div className="flex-1 overflow-hidden">
-              <OntologyPanel assignment={selectedAssignment} />
+
+            <div className="relative border-b border-ops-border" style={{ flex: '0 0 60%' }}>
+              <div className="absolute top-2 left-2 z-10 flex gap-2 pointer-events-none">
+                <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
+                  <span className="w-2 h-2 rounded-full bg-critical inline-block" /> Critical SOS
+                </span>
+                <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
+                  <span className="w-2 h-2 rounded-full bg-urgent inline-block" /> Urgent SOS
+                </span>
+                <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
+                  <span className="w-2 h-2 rounded-full bg-relay inline-block" /> Responder
+                </span>
+              </div>
+              <LiveMap
+                packets={packets}
+                responders={responders}
+                assignments={assignments}
+                height="100%"
+                onSOSClick={(pkt) => setDispatchTarget((prev) => (prev?.id === pkt.id ? null : pkt))}
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Live Assignment Feed</p>
+              {assignments.length === 0 && (
+                <p className="text-gray-600 text-sm">Assignments appear here in real-time.</p>
+              )}
+              <div className="space-y-2">
+                {assignments.map((a, i) => (
+                  <button
+                    key={`${a.assignment_id}-${i}`}
+                    onClick={() => setSelectedAssignment(a)}
+                    className="flex gap-3 w-full text-left fade-in group"
+                  >
+                    <div className={`w-px self-stretch shrink-0 ${selectedAssignment?.assignment_id === a.assignment_id ? 'bg-relay' : 'bg-relay/30'}`} />
+                    <div className={`bg-ops-card border rounded-xl p-3 flex-1 transition-colors ${selectedAssignment?.assignment_id === a.assignment_id ? 'border-relay/50' : 'border-ops-border group-hover:border-relay/30'}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <ShieldCheck size={12} className="text-relay" />
+                        <span className="text-xs font-bold text-relay">{a.responder_code} - {a.sos?.victim_code}</span>
+                        <span className="text-[10px] text-gray-500 ml-auto font-mono">
+                          {new Date(a.ts).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        ETA {a.eta_minutes ?? '-'} min · {a.distance_m ?? '-'} m
+                        {a.composite_score !== undefined && ` · score ${(a.composite_score * 100).toFixed(0)}/100`}
+                        {a.ai_available ? ' · Gemma 4' : ' · algo'}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="w-80 border-l border-ops-border flex flex-col">
+            <div className="border-b border-ops-border flex flex-col" style={{ maxHeight: '40%' }}>
+              <div className="px-4 py-3 border-b border-ops-border">
+                <p className="text-[10px] uppercase tracking-widest text-gray-500">Responders</p>
+              </div>
+              <div className="overflow-y-auto px-3 py-2 space-y-1.5">
+                {responders.map((r) => {
+                  const statusColor = {
+                    available: 'text-green-400',
+                    en_route: 'text-relay',
+                    busy: 'text-urgent',
+                    off_duty: 'text-gray-600',
+                  }[r.status] || 'text-gray-500'
+
+                  return (
+                    <div key={r.id} className="bg-ops-card border border-ops-border rounded-xl px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-white font-mono">{r.code}</span>
+                        <span className={`text-[10px] font-mono ${statusColor}`}>{r.status}</span>
+                      </div>
+                      <p className="text-xs text-gray-500">{r.name} - {r.role} - S{r.sector}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 h-1 bg-ops rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-green-500" style={{ width: `${r.battery}%` }} />
+                        </div>
+                        <span className="text-[10px] font-mono text-gray-500">{r.battery}%</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-4 py-2 border-b border-ops-border">
+                <p className="text-[10px] uppercase tracking-widest text-gray-500">
+                  Reasoning Chain {selectedAssignment ? `- ${selectedAssignment.responder_code}` : ''}
+                </p>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <OntologyPanel assignment={selectedAssignment} />
+              </div>
             </div>
           </div>
         </div>
-        </div>} {/* end tab === dashboard */}
+      )}
     </div>
   )
 }

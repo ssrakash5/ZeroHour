@@ -6,6 +6,17 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
   const score = packet.model_score ?? 0
   const barWidth = Math.round(score * 100)
 
+  // Extract enriched fields from message
+  const lines = (packet.message || '').split('\n')
+  const voiceTranscript = lines.find(l => l.startsWith('Voice transcript:'))?.replace('Voice transcript:', '').trim()
+  const aiReasoning = lines.find(l => l.startsWith('AI reasoning:'))?.replace('AI reasoning:', '').trim()
+  const peopleCount = lines.find(l => l.startsWith('People count:'))?.replace('People count:', '').trim()
+  const baseMessage = lines.filter(l => 
+    !l.startsWith('Voice transcript:') && 
+    !l.startsWith('AI reasoning:') && 
+    !l.startsWith('People count:')
+  ).join('\n').trim()
+
   // Build a hop path from hops count
   const hopNodes = ['Victim']
   for (let i = 1; i <= (packet.hops ?? 1); i++) hopNodes.push(`P-${String(i * 11 + 12).padStart(2, '0')}`)
@@ -40,10 +51,25 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
           </div>
         </div>
 
-        <p className="text-lg font-bold text-white mb-1">
+        <p className="text-lg font-bold text-white mb-1 flex items-center gap-2">
           {packet.victim_code} · {packet.emergency_type}
+          {peopleCount && (
+            <span className="text-[10px] font-mono bg-ops text-gray-400 px-2 py-0.5 rounded-full border border-ops-border">
+              {peopleCount} {parseInt(peopleCount) === 1 ? 'person' : 'people'}
+            </span>
+          )}
         </p>
-        <p className="text-sm text-gray-400 mb-4">"{packet.message || 'No message'}"</p>
+        <p className="text-sm text-gray-400 mb-3 whitespace-pre-wrap">"{baseMessage || 'No message'}"</p>
+
+        {voiceTranscript && (
+          <div className="bg-ops border border-relay/20 rounded-xl p-3 mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-relay mb-1.5 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-relay animate-pulse" />
+              Voice Transcript
+            </p>
+            <p className="text-xs text-gray-300 italic">"{voiceTranscript}"</p>
+          </div>
+        )}
 
         {/* Model score */}
         <div className="bg-ops rounded-xl p-3 mb-4">
@@ -60,8 +86,15 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
               />
             </div>
           </div>
+          
+          {aiReasoning && (
+            <div className="mt-2 pt-2 border-t border-ops-border/50">
+              <p className="text-xs text-gray-400 leading-relaxed"><span className="text-gray-300 font-semibold">Reasoning:</span> {aiReasoning}</p>
+            </div>
+          )}
+
           {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 mt-2">
               {tags.map(tag => (
                 <span key={tag} className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-ops-border text-gray-400">
                   {tag}

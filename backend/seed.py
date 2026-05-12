@@ -15,11 +15,21 @@ DEMO_RESPONDERS = [
 
 async def seed_responders():
     async with SessionLocal() as db:
-        result = await db.execute(select(Responder).limit(1))
-        if result.scalar_one_or_none():
-            return  # already seeded
+        result = await db.execute(select(Responder))
+        existing = {responder.code: responder for responder in result.scalars().all()}
 
         for data in DEMO_RESPONDERS:
+            responder = existing.get(data["code"])
+            if responder:
+                responder.name = data["name"]
+                responder.role = data["role"]
+                responder.sector = data["sector"]
+                responder.lat = data["lat"]
+                responder.lng = data["lng"]
+                responder.battery = 100
+                responder.status = ResponderStatus.available
+                continue
+
             db.add(Responder(
                 id=uuid.uuid4(),
                 code=data["code"],
@@ -32,4 +42,4 @@ async def seed_responders():
                 status=ResponderStatus.available,
             ))
         await db.commit()
-        print(f"[seed] Inserted {len(DEMO_RESPONDERS)} demo responders.")
+        print(f"[seed] Ready with {len(DEMO_RESPONDERS)} demo responders.")

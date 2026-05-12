@@ -1,73 +1,74 @@
-import { useEffect, useState, useRef } from 'react'
-import { CheckCircle2, Circle, Loader2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CheckCircle2, Circle, Loader2, MapPin } from 'lucide-react'
 import { api } from '../../api'
 
-// Demo SOS payload — in a real app this comes from GPS + mic + camera
-const DEMO_SOS = {
+const FALLBACK_REPORT = {
   victim_code: 'V-2891',
-  lat: 28.6280,
-  lng: 77.2090,
-  severity: 'critical',
-  emergency_type: 'medical',
-  message: 'Trapped — water rising. Two children with me.',
-  has_audio: true,
-  has_image: true,
-  hops: 2,
+  lat: 28.628,
+  lng: 77.209,
+  severity: null,
+  emergency_type: null,
+  message: 'People needing help: 1\nNeeds: Cannot move\nSituation: Trapped and need rescue.',
+  has_audio: false,
+  has_image: false,
+  hops: 0,
 }
 
-const LOCAL_STEPS = [
-  { label: 'Recording 5 s of audio', ms: 700 },
-  { label: 'Capturing photo', ms: 500 },
-  { label: 'Classifying with model', ms: 900 },
-  { label: 'Encrypting packet', ms: 400 },
-]
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const RELAY_STEPS = [
-  { label: 'Hop 1 · P-23' },
-  { label: 'Hop 2 · P-08' },
-  { label: 'Delivered to responder' },
-]
+function toPayload(report) {
+  const { local, ...payload } = report || FALLBACK_REPORT
+  return payload
+}
 
-const ALL_STEPS = [...LOCAL_STEPS.map(s => s.label), ...RELAY_STEPS.map(s => s.label)]
-
-export default function SendingScreen({ onAck }) {
+export default function SendingScreen({ report, onAck }) {
   const [doneIdx, setDoneIdx] = useState(-1)
   const [activeIdx, setActiveIdx] = useState(0)
   const [error, setError] = useState(null)
   const onAckRef = useRef(onAck)
   onAckRef.current = onAck
 
+  const payload = useMemo(() => toPayload(report), [report])
+  const steps = useMemo(() => {
+    const evidenceBits = [
+      payload.has_image ? 'photos' : null,
+      payload.has_audio ? 'voice note' : null,
+    ].filter(Boolean)
+    const evidenceLabel = evidenceBits.length
+      ? `Attaching ${evidenceBits.join(' and ')}`
+      : 'Attaching typed details'
+    return [
+      { label: 'Locking rescue coordinates', ms: 650 },
+      { label: evidenceLabel, ms: 550 },
+      { label: 'Checking nearby duplicate reports', ms: 650 },
+      { label: 'Sending to central hub', ms: 750, post: true },
+      { label: 'Gemma 4 reviewing voice, images, and details', ms: 900 },
+      { label: 'Waiting for responder acknowledgement', ms: 650 },
+    ]
+  }, [payload.has_audio, payload.has_image])
+
   useEffect(() => {
     let cancelled = false
 
     const runFlow = async () => {
-      // Run local steps sequentially
-      for (let i = 0; i < LOCAL_STEPS.length; i++) {
+      let result = null
+
+      for (let i = 0; i < steps.length; i++) {
         if (cancelled) return
         setActiveIdx(i)
-        await sleep(LOCAL_STEPS[i].ms)
+
+        if (steps[i].post) {
+          try {
+            result = await api.postSOS(payload)
+          } catch (e) {
+            if (!cancelled) setError('Hub unreachable. Keep this screen open and try again.')
+            return
+          }
+        }
+
+        await sleep(steps[i].ms)
+        if (cancelled) return
         setDoneIdx(i)
-      }
-
-      // Start relay steps — POST to backend while animating hops
-      setActiveIdx(LOCAL_STEPS.length) // "Hop 1"
-
-      let result = null
-      try {
-        result = await api.postSOS(DEMO_SOS)
-      } catch (e) {
-        if (!cancelled) setError('Backend unreachable. Is the server running?')
-        return
-      }
-
-      if (cancelled) return
-
-      // Animate remaining relay steps
-      for (let i = 0; i < RELAY_STEPS.length; i++) {
-        const idx = LOCAL_STEPS.length + i
-        setActiveIdx(idx)
-        await sleep(600)
-        setDoneIdx(idx)
       }
 
       if (!cancelled) onAckRef.current(result)
@@ -75,41 +76,64 @@ export default function SendingScreen({ onAck }) {
 
     runFlow()
     return () => { cancelled = true }
-  }, [])
+  }, [payload, steps])
 
   return (
-    <div className="flex flex-col h-full bg-cream">
-      <div className="flex items-center justify-between px-4 pt-3 pb-1">
+    <div className="flex h-full flex-col bg-cream">
+      <div className="flex items-center justify-between px-4 pb-1 pt-3">
         <span className="flex items-center gap-1.5 text-xs text-gray-500">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-          3 peers · relaying
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
+          sending
         </span>
-        <span className="font-mono text-xs text-gray-400">V-2891</span>
+        <span className="font-mono text-xs text-gray-400">{payload.victim_code}</span>
       </div>
 
-      <div className="flex-1 flex flex-col px-6 pt-6">
-        <p className="text-[10px] tracking-[0.2em] text-gray-400 uppercase mb-2 font-mono">
-          Sending SOS
+      <div className="flex-1 px-6 pt-6">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gray-400">
+          Rescue packet
         </p>
-        <h1 className="text-[26px] font-extrabold text-gray-900 leading-tight mb-6">
-          Don't put your phone away.
+        <h1 className="mb-2 mt-1 text-[28px] font-extrabold leading-tight text-gray-900">
+          Stay on this screen.
         </h1>
+        <p className="mb-5 text-sm leading-relaxed text-gray-500">
+          Your request is being deduplicated, triaged, and routed.
+        </p>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 space-y-3.5">
-          {ALL_STEPS.map((label, i) => {
+        <div className="mb-4 rounded-xl border border-gray-200 bg-white/75 p-3">
+          <div className="flex items-start gap-2">
+            <MapPin size={16} className="mt-0.5 text-relay" />
+            <div>
+              <p className="text-xs font-bold text-gray-800">
+                AI assessing incident type and criticality
+              </p>
+              <p className="font-mono text-[10px] text-gray-400">
+                {Number(payload.lat).toFixed(5)}, {Number(payload.lng).toFixed(5)}
+              </p>
+              <p className="mt-1 text-[11px] text-gray-500">
+                {payload.has_image ? 'Photos attached' : 'No photos'} · {payload.has_audio ? 'Voice note attached' : 'No voice note'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3.5 rounded-xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
+          {steps.map((step, i) => {
             const isDone = i <= doneIdx
             const isActive = i === activeIdx && !isDone
             return (
-              <div key={label} className="flex items-center gap-3">
+              <div key={step.label} className="flex items-center gap-3">
                 {isDone ? (
-                  <CheckCircle2 size={20} className="text-green-500 shrink-0" strokeWidth={2.5} />
+                  <CheckCircle2 size={20} className="shrink-0 text-green-500" strokeWidth={2.5} />
                 ) : isActive ? (
-                  <Loader2 size={20} className="text-blue-400 shrink-0 animate-spin" strokeWidth={2} />
+                  <Loader2 size={20} className="shrink-0 animate-spin text-blue-400" strokeWidth={2} />
                 ) : (
-                  <Circle size={20} className="text-gray-200 shrink-0" strokeWidth={2} />
+                  <Circle size={20} className="shrink-0 text-gray-200" strokeWidth={2} />
                 )}
-                <span className={`text-sm ${isDone ? 'text-gray-700 font-medium' : isActive ? 'text-gray-900 font-semibold' : 'text-gray-300'}`}>
-                  {label}
+                <span className={`text-sm ${
+                  isDone ? 'font-medium text-gray-700' : isActive ? 'font-semibold text-gray-900' : 'text-gray-300'
+                }`}
+                >
+                  {step.label}
                 </span>
               </div>
             )
@@ -117,19 +141,19 @@ export default function SendingScreen({ onAck }) {
         </div>
 
         {error ? (
-          <p className="text-center text-xs text-red-400 font-mono mt-6">{error}</p>
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center">
+            <p className="text-xs font-semibold text-critical">{error}</p>
+          </div>
         ) : (
-          <p className="text-center font-mono text-sm text-gray-500 mt-8 leading-relaxed">
-            Your phone is the relay. Stay<br />still if you can.
+          <p className="mt-8 text-center font-mono text-sm leading-relaxed text-gray-500">
+            Keep the phone nearby if safe.
           </p>
         )}
       </div>
 
       <div className="px-6 pb-8 pt-4 text-center">
-        <span className="text-xs font-mono text-gray-400">→ delivered + ack</span>
+        <span className="font-mono text-xs text-gray-400">central hub + responder routing</span>
       </div>
     </div>
   )
 }
-
-const sleep = (ms) => new Promise(r => setTimeout(r, ms))
