@@ -43,9 +43,16 @@ function ExtractedDetailsTable({ packet }) {
   let structuredData = null
   
   if (baseMessage.includes('---STRUCTURED_DATA---')) {
+    const parts = baseMessage.split('---STRUCTURED_DATA---')
+    
     try {
-      const jsonStr = baseMessage.split('---STRUCTURED_DATA---')[1].trim()
-      structuredData = JSON.parse(jsonStr)
+      for (let i = parts.length - 1; i >= 1; i--) {
+        const jsonMatch = parts[i].match(/({[\s\S]*?})/)
+        if (jsonMatch) {
+          structuredData = JSON.parse(jsonMatch[1])
+          break
+        }
+      }
     } catch (e) {
       // ignore
     }

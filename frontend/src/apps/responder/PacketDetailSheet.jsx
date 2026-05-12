@@ -11,10 +11,26 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
   let structuredData = {}
   
   if (baseMessage.includes('---STRUCTURED_DATA---')) {
+    // Extract the very LAST structured data block (most recent update)
     const parts = baseMessage.split('---STRUCTURED_DATA---')
-    baseMessage = parts[0].trim()
+    
+    // Remove the structured data blocks from the base message to clean it up
+    baseMessage = parts.map(p => {
+      if (p.trim().startsWith('{')) {
+        return p.substring(p.indexOf('}') + 1).trim()
+      }
+      return p.trim()
+    }).join('\n\n').trim()
+
     try {
-      structuredData = JSON.parse(parts[1].trim())
+      // Find the last part that contains a JSON object
+      for (let i = parts.length - 1; i >= 1; i--) {
+        const jsonMatch = parts[i].match(/({[\s\S]*?})/)
+        if (jsonMatch) {
+          structuredData = JSON.parse(jsonMatch[1])
+          break
+        }
+      }
     } catch (e) {
       console.error("Failed to parse structured data", e)
     }
