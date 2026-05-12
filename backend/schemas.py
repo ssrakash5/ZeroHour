@@ -11,11 +11,12 @@ class SOSCreate(BaseModel):
     victim_code: str
     lat: float
     lng: float
-    severity: Severity
-    emergency_type: EmergencyType = EmergencyType.unknown
+    severity: Severity | None = None
+    emergency_type: EmergencyType | None = None
     message: str | None = None
     has_audio: bool = False
     has_image: bool = False
+    audio_base64: str | None = None
     hops: int = 0
 
 
@@ -47,11 +48,22 @@ class AssignmentBrief(BaseModel):
     eta_minutes: int | None
     distance_m: int | None
     ai_reason: str | None
+    ai_available: bool | None = None
+    confidence: float | None = None
+
+
+class TriageBrief(BaseModel):
+    severity: str
+    emergency_type: str
+    reason: str | None = None
+    confidence: float | None = None
+    ai_available: bool | None = None
 
 
 class SOSWithAssignment(BaseModel):
     sos: SOSOut
     assignment: AssignmentBrief | None
+    triage: TriageBrief | None = None
 
 
 # ── Responder ─────────────────────────────────────────────────────────────────

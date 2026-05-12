@@ -5,8 +5,6 @@ services:
       POSTGRES_USER: zerohour
       POSTGRES_PASSWORD: zerohour
       POSTGRES_DB: zerohour
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -25,6 +23,32 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./env
+    environment:
+      DATABASE_URL: postgresql+psycopg://zerohour:zerohour@postgres:5432/zerohour
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:8080"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

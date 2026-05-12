@@ -16,6 +16,7 @@ async function request(path, options = {}) {
 export const api = {
   // SOS
   postSOS: (data) => request('/sos/', { method: 'POST', body: JSON.stringify(data) }),
+  resetDemo: () => request('/sos/reset-demo', { method: 'POST' }),
   getQueue: (status) => request(`/sos/queue${status ? `?status=${status}` : ''}`),
   getSOS: (id) => request(`/sos/${id}`),
   resolveSOS: (id) => request(`/sos/${id}/resolve`, { method: 'PATCH' }),

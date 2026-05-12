@@ -3,20 +3,28 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import DeclarativeBase
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ENV_FILE = Path(__file__).parent.parent / ".env"
+BACKEND_ENV_FILE = Path(__file__).parent.parent / ".env"
+ROOT_ENV_FILE = Path(__file__).resolve().parents[2] / "env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=str(ENV_FILE), extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(str(ROOT_ENV_FILE), str(BACKEND_ENV_FILE)),
+        extra="ignore",
+    )
     DATABASE_URL: str = "postgresql+psycopg://zerohour:zerohour@localhost:5432/zerohour"
     REDIS_URL: str = "redis://localhost:6379"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemma-4-27b-it"
+    GEMINI_INSECURE_SKIP_VERIFY: bool = True
 
 
 settings = Settings()
 
-_is_remote = "localhost" not in settings.DATABASE_URL and "127.0.0.1" not in settings.DATABASE_URL
+_is_remote = all(
+    host not in settings.DATABASE_URL
+    for host in ("localhost", "127.0.0.1", "@postgres:", "@postgres/")
+)
 
 # prepare_threshold=None disables server-side prepared statements, required for
 # Supabase's pgbouncer transaction pooler (port 6543).

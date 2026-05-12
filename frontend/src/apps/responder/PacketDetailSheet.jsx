@@ -6,6 +6,46 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
   const score = packet.model_score ?? 0
   const barWidth = Math.round(score * 100)
 
+  // Extract enriched fields from message
+  let baseMessage = packet.message || ''
+  let structuredData = {}
+  
+  if (baseMessage.includes('---STRUCTURED_DATA---')) {
+    // Extract the very LAST structured data block (most recent update)
+    const parts = baseMessage.split('---STRUCTURED_DATA---')
+    
+    // Remove the structured data blocks from the base message to clean it up
+    baseMessage = parts.map(p => {
+      if (p.trim().startsWith('{')) {
+        return p.substring(p.indexOf('}') + 1).trim()
+      }
+      return p.trim()
+    }).join('\n\n').trim()
+
+    try {
+      // Find the last part that contains a JSON object
+      for (let i = parts.length - 1; i >= 1; i--) {
+        const jsonMatch = parts[i].match(/({[\s\S]*?})/)
+        if (jsonMatch) {
+          structuredData = JSON.parse(jsonMatch[1])
+          break
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse structured data", e)
+    }
+  }
+
+  const {
+    voice_transcript: voiceTranscript,
+    reason: aiReasoning,
+    people_count: peopleCount,
+    calamity,
+    age,
+    medical_conditions: medicalConditions,
+    quick_needs: quickNeeds
+  } = structuredData
+
   // Build a hop path from hops count
   const hopNodes = ['Victim']
   for (let i = 1; i <= (packet.hops ?? 1); i++) hopNodes.push(`P-${String(i * 11 + 12).padStart(2, '0')}`)
@@ -40,10 +80,66 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
           </div>
         </div>
 
-        <p className="text-lg font-bold text-white mb-1">
+        <p className="text-lg font-bold text-white mb-1 flex items-center gap-2">
           {packet.victim_code} · {packet.emergency_type}
+          {peopleCount && (
+            <span className="text-[10px] font-mono bg-ops text-gray-400 px-2 py-0.5 rounded-full border border-ops-border">
+              {peopleCount} {parseInt(peopleCount) === 1 ? 'person' : 'people'}
+            </span>
+          )}
         </p>
-        <p className="text-sm text-gray-400 mb-4">"{packet.message || 'No message'}"</p>
+        <p className="text-sm text-gray-400 mb-3 whitespace-pre-wrap">"{baseMessage || 'No message'}"</p>
+
+        {/* Extracted Details Table */}
+        {(peopleCount || calamity || age || medicalConditions || quickNeeds) && (
+          <div className="bg-ops-card border border-ops-border rounded-xl mb-4 overflow-hidden">
+            <div className="bg-ops-border/30 px-3 py-2 border-b border-ops-border">
+              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Extracted Details</p>
+            </div>
+            <div className="divide-y divide-ops-border/50">
+              {peopleCount && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">People</span>
+                  <span className="w-2/3 text-xs text-white font-mono">{peopleCount}</span>
+                </div>
+              )}
+              {calamity && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">Calamity</span>
+                  <span className="w-2/3 text-xs text-white font-mono">{calamity}</span>
+                </div>
+              )}
+              {age && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">Age</span>
+                  <span className="w-2/3 text-xs text-white font-mono">{age}</span>
+                </div>
+              )}
+              {medicalConditions && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">Medical</span>
+                  <span className="w-2/3 text-xs text-white font-mono">{medicalConditions}</span>
+                </div>
+              )}
+              {quickNeeds && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">Quick Needs</span>
+                  <span className="w-2/3 text-xs text-white font-mono">{quickNeeds}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {voiceTranscript && (
+          <div className="bg-ops border border-relay/20 rounded-xl p-3 mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-relay mb-1.5 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-relay animate-pulse" />
+              Voice Transcript
+            </p>
+            <p className="text-xs text-gray-300 italic">"{voiceTranscript}"</p>
+          </div>
+        )}
 
         {/* Model score */}
         <div className="bg-ops rounded-xl p-3 mb-4">
@@ -60,8 +156,15 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
               />
             </div>
           </div>
+          
+          {aiReasoning && (
+            <div className="mt-2 pt-2 border-t border-ops-border/50">
+              <p className="text-xs text-gray-400 leading-relaxed"><span className="text-gray-300 font-semibold">Reasoning:</span> {aiReasoning}</p>
+            </div>
+          )}
+
           {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 mt-2">
               {tags.map(tag => (
                 <span key={tag} className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-ops-border text-gray-400">
                   {tag}
