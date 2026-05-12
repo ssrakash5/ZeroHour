@@ -39,12 +39,12 @@ Allowed emergency_type values: medical, trapped, flood, fire, unknown
 Allowed severity values: critical, urgent, low
 
 If `has_audio` is True or the message implies spoken text, provide a `voice_transcript`. Otherwise leave empty.
-Extract additional details from the message into these fields:
-- `people_count`: <int>
+Extract additional details from the message into these fields (DO NOT use null, use "Unknown" or "None" if missing):
+- `people_count`: <int> (default to 1)
 - `calamity`: <string> (specific disaster or event type)
-- `age`: <string> (e.g. "30s", "child", "unknown")
-- `medical_conditions`: <string> (or "None")
-- `quick_needs`: <string> (e.g. "Water", "Evacuation", "Bandages")
+- `age`: <string> (e.g. "30s", "child", "Unknown")
+- `medical_conditions`: <string> (e.g. "Asthma", "None")
+- `quick_needs`: <string> (e.g. "Water", "Evacuation", "Unknown")
 
 Return ONLY this JSON:
 {{"severity": "<critical|urgent|low>", "emergency_type": "<medical|trapped|flood|fire|unknown>", "reason": "<one sentence explaining criticality>", "confidence": <0.0-1.0>, "people_count": <int>, "calamity": "<string>", "age": "<string>", "medical_conditions": "<string>", "quick_needs": "<string>", "voice_transcript": "<string>"}}"""
@@ -146,7 +146,10 @@ async def triage_packet(sos: dict) -> dict:
             "voice_transcript": result.get("voice_transcript"),
             "ai_available": True,
         }
-    except Exception:
+    except Exception as e:
+        print(f"GEMMA TRIAGE ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return fallback_triage(sos.get("message"), sos.get("has_audio", False), sos.get("has_image", False))
 
 
