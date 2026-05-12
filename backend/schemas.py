@@ -16,6 +16,7 @@ class SOSCreate(BaseModel):
     message: str | None = None
     has_audio: bool = False
     has_image: bool = False
+    audio_base64: str | None = None
     hops: int = 0
 
 

@@ -85,9 +85,19 @@ def _format_candidates(candidates: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _json_payload(prompt: str) -> dict:
+def _json_payload(prompt: str, audio_base64: str | None = None) -> dict:
+    parts = []
+    if audio_base64:
+        parts.append({
+            "inlineData": {
+                "mimeType": "audio/webm",
+                "data": audio_base64
+            }
+        })
+    parts.append({"text": prompt})
+
     return {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{"parts": parts}],
         "generationConfig": {"responseMimeType": "application/json"},
     }
 
@@ -98,10 +108,10 @@ def _client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=30.0, verify=verify)
 
 
-async def _call_gemma(prompt: str) -> dict:
+async def _call_gemma(prompt: str, audio_base64: str | None = None) -> dict:
     url = GEMINI_URL.format(model=settings.GEMINI_MODEL, key=settings.GEMINI_API_KEY)
     async with _client() as client:
-        resp = await client.post(url, json=_json_payload(prompt))
+        resp = await client.post(url, json=_json_payload(prompt, audio_base64))
         resp.raise_for_status()
         text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
         return json.loads(text)
@@ -132,7 +142,7 @@ async def triage_packet(sos: dict) -> dict:
     )
 
     try:
-        result = await _call_gemma(prompt)
+        result = await _call_gemma(prompt, sos.get("audio_base64"))
         return {
             "severity": _normalize_severity(result.get("severity")),
             "emergency_type": _normalize_type(result.get("emergency_type")),

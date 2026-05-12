@@ -322,7 +322,7 @@ export default function HomeScreen({ onSend }) {
     }
   }
 
-  const submit = () => {
+  const submit = async () => {
     const trimmedAddress = address.trim()
     const usableLocation = location || (trimmedAddress ? BASE_LOCATION : null)
 
@@ -342,6 +342,15 @@ export default function HomeScreen({ onSend }) {
       voiceTranscript,
     })
 
+    let audio_base64 = null
+    if (voiceClip?.blob) {
+      audio_base64 = await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result.split(',')[1])
+        reader.readAsDataURL(voiceClip.blob)
+      })
+    }
+
     onSend({
       victim_code: victimCode,
       lat: usableLocation.lat,
@@ -351,6 +360,7 @@ export default function HomeScreen({ onSend }) {
       message,
       has_audio: Boolean(voiceClip),
       has_image: photos.length > 0,
+      audio_base64,
       hops: 0,
       local: {
         address: trimmedAddress,

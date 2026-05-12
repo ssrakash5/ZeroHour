@@ -66,6 +66,7 @@ def _triage_request_dict(body: SOSCreate) -> dict:
         "message": body.message,
         "has_audio": body.has_audio,
         "has_image": body.has_image,
+        "audio_base64": body.audio_base64,
         "submitted_severity": body.severity.value if body.severity else None,
         "submitted_emergency_type": body.emergency_type.value if body.emergency_type else None,
     }
