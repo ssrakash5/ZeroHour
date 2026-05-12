@@ -71,17 +71,27 @@ def _triage_request_dict(body: SOSCreate) -> dict:
     }
 
 
+import json
+
 def _enrich_message(base_message: str | None, triage: dict) -> str:
-    parts = []
-    if base_message:
-        parts.append(base_message)
-    if triage.get("voice_transcript"):
-        parts.append(f"\nVoice transcript: {triage['voice_transcript']}")
-    if triage.get("people_count") is not None:
-        parts.append(f"\nPeople count: {triage['people_count']}")
-    if triage.get("reason"):
-        parts.append(f"\nAI reasoning: {triage['reason']}")
-    return "".join(parts).strip()
+    message = base_message or ""
+    
+    # Store structured data cleanly
+    structured_data = {
+        "voice_transcript": triage.get("voice_transcript"),
+        "people_count": triage.get("people_count"),
+        "reason": triage.get("reason"),
+        "calamity": triage.get("calamity"),
+        "age": triage.get("age"),
+        "medical_conditions": triage.get("medical_conditions"),
+        "quick_needs": triage.get("quick_needs")
+    }
+    
+    # Only append if we have actual data
+    if any(structured_data.values()):
+        return f"{message}\n\n---STRUCTURED_DATA---\n{json.dumps(structured_data)}"
+    
+    return message
 
 
 def _merge_duplicate_report(

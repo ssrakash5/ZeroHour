@@ -39,10 +39,15 @@ Allowed emergency_type values: medical, trapped, flood, fire, unknown
 Allowed severity values: critical, urgent, low
 
 If `has_audio` is True or the message implies spoken text, provide a `voice_transcript`. Otherwise leave empty.
-Estimate the number of people involved (`people_count`) based on the message or default to 1.
+Extract additional details from the message into these fields:
+- `people_count`: <int>
+- `calamity`: <string> (specific disaster or event type)
+- `age`: <string> (e.g. "30s", "child", "unknown")
+- `medical_conditions`: <string> (or "None")
+- `quick_needs`: <string> (e.g. "Water", "Evacuation", "Bandages")
 
 Return ONLY this JSON:
-{{"severity": "<critical|urgent|low>", "emergency_type": "<medical|trapped|flood|fire|unknown>", "reason": "<one sentence explaining criticality>", "confidence": <0.0-1.0>, "people_count": <int>, "voice_transcript": "<string>"}}"""
+{{"severity": "<critical|urgent|low>", "emergency_type": "<medical|trapped|flood|fire|unknown>", "reason": "<one sentence explaining criticality>", "confidence": <0.0-1.0>, "people_count": <int>, "calamity": "<string>", "age": "<string>", "medical_conditions": "<string>", "quick_needs": "<string>", "voice_transcript": "<string>"}}"""
 
 
 ASSIGNMENT_TEMPLATE = """{system}
@@ -134,6 +139,10 @@ async def triage_packet(sos: dict) -> dict:
             "reason": result.get("reason") or "AI triage completed.",
             "confidence": float(result.get("confidence", 0.7)),
             "people_count": result.get("people_count"),
+            "calamity": result.get("calamity"),
+            "age": result.get("age"),
+            "medical_conditions": result.get("medical_conditions"),
+            "quick_needs": result.get("quick_needs"),
             "voice_transcript": result.get("voice_transcript"),
             "ai_available": True,
         }

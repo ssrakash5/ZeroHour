@@ -25,11 +25,52 @@ function extractField(message, label) {
 }
 
 function packetPreview(packet) {
+  const message = packet.message || ''
+  const baseMessage = message.split('---STRUCTURED_DATA---')[0].trim()
+  
   return (
-    extractField(packet.message, 'Voice transcript')
-    || extractField(packet.message, 'Situation')
-    || packet.message
+    extractField(baseMessage, 'Situation')
+    || baseMessage
     || 'No message'
+  )
+}
+
+function ExtractedDetailsTable({ packet }) {
+  let baseMessage = packet.message || ''
+  let structuredData = null
+  
+  if (baseMessage.includes('---STRUCTURED_DATA---')) {
+    try {
+      const jsonStr = baseMessage.split('---STRUCTURED_DATA---')[1].trim()
+      structuredData = JSON.parse(jsonStr)
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  if (!structuredData) return null
+
+  const fields = [
+    { label: 'People', value: structuredData.people_count },
+    { label: 'Calamity', value: structuredData.calamity },
+    { label: 'Age', value: structuredData.age },
+    { label: 'Medical', value: structuredData.medical_conditions },
+    { label: 'Quick Needs', value: structuredData.quick_needs }
+  ].filter(f => f.value)
+
+  if (fields.length === 0) return null
+
+  return (
+    <div className="mt-3 mb-2 bg-black/20 rounded-lg overflow-hidden border border-ops-border/50">
+      <div className="grid grid-cols-2 divide-x divide-y divide-ops-border/50 text-[10px] font-mono">
+        {fields.map((f, i) => (
+          <div key={i} className="flex flex-col px-2 py-1">
+            <span className="text-gray-500">{f.label}</span>
+            <span className="text-gray-300 truncate">{f.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -143,6 +184,8 @@ export default function TriageScreen({ onSelectPacket }) {
                 {packetPreview(pkt)}
                 {pkt.model_score ? ` - model ${pkt.model_score}` : ''}
               </p>
+
+              <ExtractedDetailsTable packet={pkt} />
 
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {pkt.has_audio && (

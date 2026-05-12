@@ -7,15 +7,28 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
   const barWidth = Math.round(score * 100)
 
   // Extract enriched fields from message
-  const lines = (packet.message || '').split('\n')
-  const voiceTranscript = lines.find(l => l.startsWith('Voice transcript:'))?.replace('Voice transcript:', '').trim()
-  const aiReasoning = lines.find(l => l.startsWith('AI reasoning:'))?.replace('AI reasoning:', '').trim()
-  const peopleCount = lines.find(l => l.startsWith('People count:'))?.replace('People count:', '').trim()
-  const baseMessage = lines.filter(l => 
-    !l.startsWith('Voice transcript:') && 
-    !l.startsWith('AI reasoning:') && 
-    !l.startsWith('People count:')
-  ).join('\n').trim()
+  let baseMessage = packet.message || ''
+  let structuredData = {}
+  
+  if (baseMessage.includes('---STRUCTURED_DATA---')) {
+    const parts = baseMessage.split('---STRUCTURED_DATA---')
+    baseMessage = parts[0].trim()
+    try {
+      structuredData = JSON.parse(parts[1].trim())
+    } catch (e) {
+      console.error("Failed to parse structured data", e)
+    }
+  }
+
+  const {
+    voice_transcript: voiceTranscript,
+    reason: aiReasoning,
+    people_count: peopleCount,
+    calamity,
+    age,
+    medical_conditions: medicalConditions,
+    quick_needs: quickNeeds
+  } = structuredData
 
   // Build a hop path from hops count
   const hopNodes = ['Victim']
@@ -60,6 +73,47 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
           )}
         </p>
         <p className="text-sm text-gray-400 mb-3 whitespace-pre-wrap">"{baseMessage || 'No message'}"</p>
+
+        {/* Extracted Details Table */}
+        {(peopleCount || calamity || age || medicalConditions || quickNeeds) && (
+          <div className="bg-ops-card border border-ops-border rounded-xl mb-4 overflow-hidden">
+            <div className="bg-ops-border/30 px-3 py-2 border-b border-ops-border">
+              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Extracted Details</p>
+            </div>
+            <div className="divide-y divide-ops-border/50">
+              {peopleCount && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">People</span>
+                  <span className="w-2/3 text-xs text-white font-mono">{peopleCount}</span>
+                </div>
+              )}
+              {calamity && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">Calamity</span>
+                  <span className="w-2/3 text-xs text-white font-mono">{calamity}</span>
+                </div>
+              )}
+              {age && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">Age</span>
+                  <span className="w-2/3 text-xs text-white font-mono">{age}</span>
+                </div>
+              )}
+              {medicalConditions && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">Medical</span>
+                  <span className="w-2/3 text-xs text-white font-mono">{medicalConditions}</span>
+                </div>
+              )}
+              {quickNeeds && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">Quick Needs</span>
+                  <span className="w-2/3 text-xs text-white font-mono">{quickNeeds}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {voiceTranscript && (
           <div className="bg-ops border border-relay/20 rounded-xl p-3 mb-4">
