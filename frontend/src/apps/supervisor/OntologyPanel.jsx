@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, Zap, Brain, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, XCircle, Zap, Brain, AlertTriangle, Users } from 'lucide-react'
 
 function SkillBadge({ label, matched }) {
   return (
@@ -52,7 +52,8 @@ export default function OntologyPanel({ assignment }) {
   const composite = assignment.composite_score
   const aiAvailable = assignment.ai_available
   const override = assignment.ai_override
-  const triage = assignment.triage
+  const isTeam = assignment.is_team
+  const team = assignment.team || []
 
   return (
     <div className="h-full overflow-y-auto px-4 py-4 space-y-4 fade-in">
@@ -61,19 +62,26 @@ export default function OntologyPanel({ assignment }) {
       <div>
         <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Dispatch Reasoning Chain</p>
         <p className="text-base font-bold text-white">
-          {assignment.sos?.victim_code} → {assignment.responder_code}
+          {assignment.sos?.victim_code} →{' '}
+          {isTeam ? team.map(t => t.responder_code).join(' + ') : assignment.responder_code}
         </p>
         <p className="text-xs text-gray-400">{assignment.sos?.emergency_type} · {assignment.sos?.severity}</p>
       </div>
 
       {/* AI / Algorithm indicator */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <div className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full border font-mono ${
           aiAvailable ? 'border-relay/40 bg-relay/10 text-relay' : 'border-gray-700 bg-ops text-gray-500'
         }`}>
           <Brain size={10} />
           {aiAvailable ? 'Gemma 4 active' : 'Algorithm fallback'}
         </div>
+        {isTeam && (
+          <div className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full border border-urgent/40 bg-urgent/10 text-urgent font-mono">
+            <Users size={10} />
+            Team dispatch
+          </div>
+        )}
         {override && (
           <div className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full border border-urgent/40 bg-urgent/10 text-urgent font-mono">
             <AlertTriangle size={10} />
@@ -81,6 +89,28 @@ export default function OntologyPanel({ assignment }) {
           </div>
         )}
       </div>
+
+      {/* Team members */}
+      {isTeam && team.length > 0 && (
+        <div className="bg-ops-card border border-urgent/30 rounded-xl p-3">
+          <p className="text-[10px] uppercase tracking-widest text-urgent mb-2 flex items-center gap-1">
+            <Users size={10} /> Dispatched team
+          </p>
+          <div className="space-y-1.5">
+            {team.map((m, i) => (
+              <div key={m.responder_code} className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-gray-500">{i === 0 ? 'PRIMARY' : 'SUPPORT'}</span>
+                <span className="text-xs font-bold text-white font-mono">{m.responder_code}</span>
+                <span className="text-xs text-gray-400">{m.responder_name} · {m.role}</span>
+                <span className="ml-auto text-[10px] font-mono text-relay">{m.eta_minutes}min · {m.distance_m}m</span>
+              </div>
+            ))}
+          </div>
+          {assignment.team_reason && (
+            <p className="text-[10px] text-urgent/70 italic mt-2">{assignment.team_reason}</p>
+          )}
+        </div>
+      )}
 
       {/* AI Reason */}
       {triage?.reason && (

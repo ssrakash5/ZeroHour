@@ -19,8 +19,13 @@ GEMINI_URL = (
 )
 
 SYSTEM_PROMPT = """You are the final-decision AI in ZeroHour, a disaster response system.
-You must read victim details carefully, infer meaning from multilingual text, voice transcripts, and evidence hints,
-assign the most likely emergency type, assess severity, and then help route the nearest suitable responder.
+An algorithmic scorer has already ranked responders by role match, skill coverage, distance, battery, and sector.
+Your job is to apply contextual judgment the algorithm cannot: interpret victim messages, audio/image signals,
+and multi-victim nuance. You may confirm the algorithm's top pick or override it — but you must justify any override.
+
+TEAM DISPATCH: For critical or complex situations (multiple victims, severe injuries, structural hazards),
+you may dispatch a team of 2 responders with complementary roles. Use team_codes only when genuinely needed —
+sending two responders reduces availability for other emergencies.
 Always return valid JSON only."""
 
 TRIAGE_TEMPLATE = """{system}
@@ -63,12 +68,14 @@ EMERGENCY:
 REQUIRED by ontology:
 - Skills: {required_skills}
 - Equipment: {required_equipment}
+- Recommended team support role: {team_support_role}
 
 ALGORITHM-RANKED CANDIDATES (already scored 0-1):
 {candidates_block}
 
-Confirm or override. Return ONLY this JSON:
-{{"assign": "<code>", "reason": "<one sentence explaining the responder choice>", "eta_minutes": <int>, "confidence": <0.0-1.0>, "override": <true|false>}}"""
+Confirm or override. For single dispatch omit team_codes. Return ONLY this JSON:
+{{"assign": "<primary_code>", "team_codes": ["<code1>", "<code2>"], "team_reason": "<why team needed>", "reason": "<one sentence>", "eta_minutes": <int>, "confidence": <0.0-1.0>, "override": <true|false>}}
+Note: team_codes is optional. Only include it when a multi-responder team is genuinely required."""
 
 
 def _format_candidates(candidates: list[dict]) -> str:
@@ -98,20 +105,24 @@ def _json_payload(prompt: str, audio_base64: str | None = None) -> dict:
 
     return {
         "contents": [{"parts": parts}],
-        "generationConfig": {"responseMimeType": "application/json"},
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 512},
     }
 
 
 def _client() -> httpx.AsyncClient:
     # Local dev has had TLS trust-chain issues; allow a clean fallback toggle.
     verify = False if getattr(settings, "GEMINI_INSECURE_SKIP_VERIFY", True) else True
-    return httpx.AsyncClient(timeout=30.0, verify=verify)
+    return httpx.AsyncClient(timeout=90.0, verify=verify)
 
 
-async def _call_gemma(prompt: str, audio_base64: str | None = None) -> dict:
-    url = GEMINI_URL.format(model=settings.GEMINI_MODEL, key=settings.GEMINI_API_KEY)
+async def _call_gemma(prompt: str, audio_base64: str | None = None, model: str | None = None) -> dict:
+    use_model = model or settings.GEMINI_MODEL
+    url = GEMINI_URL.format(model=use_model, key=settings.GEMINI_API_KEY)
     async with _client() as client:
         resp = await client.post(url, json=_json_payload(prompt, audio_base64))
+        if not resp.is_success:
+            import logging
+            logging.getLogger(__name__).error("Gemma API body: %s", resp.text)
         resp.raise_for_status()
         text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
         return json.loads(text)
@@ -142,7 +153,7 @@ async def triage_packet(sos: dict) -> dict:
     )
 
     try:
-        result = await _call_gemma(prompt, sos.get("audio_base64"))
+        result = await _call_gemma(prompt, sos.get("audio_base64"), model=settings.GEMINI_TRIAGE_MODEL)
         return {
             "severity": _normalize_severity(result.get("severity")),
             "emergency_type": _normalize_type(result.get("emergency_type")),
@@ -172,10 +183,14 @@ async def triage_and_assign(sos: dict, ranked_candidates: list[dict]) -> dict:
         return {}
 
     if not settings.GEMINI_API_KEY:
-        return _fallback(ranked_candidates)
+        return _fallback(ranked_candidates, sos)
 
     top = ranked_candidates[0]
     profile = top.get("ontology", {})
+
+    from services.ontology import get_profile
+    etype_profile = get_profile(sos.get("emergency_type", "unknown"))
+    team_support = ", ".join(etype_profile.team_support_roles) or "none"
 
     prompt = ASSIGNMENT_TEMPLATE.format(
         system=SYSTEM_PROMPT,
@@ -189,6 +204,7 @@ async def triage_and_assign(sos: dict, ranked_candidates: list[dict]) -> dict:
         urgency=top.get("urgency_multiplier", 1.0),
         required_skills=", ".join(profile.get("required_skills", [])),
         required_equipment=", ".join(profile.get("required_equipment", [])),
+        team_support_role=team_support,
         candidates_block=_format_candidates(ranked_candidates),
     )
 
@@ -197,12 +213,13 @@ async def triage_and_assign(sos: dict, ranked_candidates: list[dict]) -> dict:
         result["ai_available"] = True
         return result
     except Exception:
-        return _fallback(ranked_candidates)
+        return _fallback(ranked_candidates, sos)
 
 
-def _fallback(ranked_candidates: list[dict]) -> dict:
+def _fallback(ranked_candidates: list[dict], sos: dict | None = None) -> dict:
+    """Algorithm top pick — used when AI Studio is unreachable or key is unset."""
     best = ranked_candidates[0]
-    return {
+    result = {
         "assign": best["code"],
         "reason": f"Closest suitable team by score {best['composite_score']:.2f}, role {best['role']}, and distance {best['distance_m']:.0f} m.",
         "eta_minutes": best["eta_minutes"],
@@ -210,3 +227,21 @@ def _fallback(ranked_candidates: list[dict]) -> dict:
         "override": False,
         "ai_available": False,
     }
+    # Auto team dispatch: critical severity + primary role covers <70% of required skills
+    if sos and sos.get("severity") == "critical":
+        from services.ontology import get_profile
+        profile = get_profile(sos.get("emergency_type", "unknown"))
+        skill_coverage = best.get("ontology", {}).get("skill_coverage", 1.0)
+        if skill_coverage < 0.7 and profile.team_support_roles:
+            support_role = profile.team_support_roles[0]
+            support = next(
+                (c for c in ranked_candidates[1:] if c["role"] == support_role),
+                None,
+            )
+            if support:
+                result["team_codes"] = [best["code"], support["code"]]
+                result["team_reason"] = (
+                    f"Critical case with {skill_coverage:.0%} skill coverage — "
+                    f"adding {support_role} ({support['code']}) for full response."
+                )
+    return result

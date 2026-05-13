@@ -13,7 +13,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import SessionLocal
-from db.models import Assignment, Responder, ResponderStatus, SOSPacket, SOSStatus
+from db.models import Responder, SOSPacket, Assignment, SOSStatus, ResponderStatus, AssignmentStatus
+from services.geo import GeoPoint, haversine_m, eta_minutes
+from services.scorer import rank_candidates
 from services.gemma import triage_and_assign
 from services.geo import GeoPoint, eta_minutes, haversine_m
 from services.pubsub import publish_assignment, publish_sos_new
@@ -55,6 +57,16 @@ async def _assign(sos_id: uuid.UUID, db: AsyncSession, triage_result: dict | Non
     sos = result.scalar_one_or_none()
     if not sos:
         return None
+
+    # Guard: never double-assign the same SOS
+    if sos.status == SOSStatus.assigned:
+        existing = await db.execute(
+            select(Assignment).where(
+                Assignment.sos_id == sos_id,
+                Assignment.status == AssignmentStatus.active,
+            )
+        )
+        return existing.scalar_one_or_none()
 
     await publish_sos_new(_sos_dict(sos))
 
@@ -116,39 +128,77 @@ async def _assign(sos_id: uuid.UUID, db: AsyncSession, triage_result: dict | Non
     if not responder:
         return None
 
-    assignment = Assignment(
-        id=uuid.uuid4(),
-        sos_id=sos.id,
-        responder_id=responder.id,
-        eta_minutes=ai_result.get("eta_minutes", chosen["eta_minutes"]),
-        distance_m=round(chosen["distance_m"]),
-        ai_reason=_combined_reason(triage_result, ai_result.get("reason")),
-        assigned_at=datetime.now(timezone.utc),
-    )
-    assignment.ai_available = ai_result.get("ai_available", False)
-    assignment.confidence = ai_result.get("confidence")
-    db.add(assignment)
-    sos.status = SOSStatus.assigned
-    responder.status = ResponderStatus.en_route
-    await db.commit()
-    await db.refresh(assignment)
+    # ── Resolve team members (if Gemma requested team dispatch) ──────────────
+    team_codes = ai_result.get("team_codes", [])
+    if team_codes:
+        # Deduplicate and exclude codes not in ranked list
+        ranked_codes = {c["code"] for c in ranked}
+        team_codes = list(dict.fromkeys(c for c in team_codes if c in ranked_codes))
+    if not team_codes:
+        team_codes = [chosen["code"]]
 
-    onto = chosen.get("ontology", {})
-    await publish_assignment(responder.code, {
-        "assignment_id": str(assignment.id),
+    team_candidates = [next((c for c in ranked if c["code"] == tc), None) for tc in team_codes]
+    team_candidates = [c for c in team_candidates if c is not None]
+
+    # ── Load responder ORM objects for all team members ───────────────────────
+    team_responders = []
+    for tc in team_candidates:
+        r_result = await db.execute(select(Responder).where(Responder.code == tc["code"]))
+        r = r_result.scalar_one_or_none()
+        if r:
+            team_responders.append((tc, r))
+
+    if not team_responders:
+        return None
+
+    # ── Persist one Assignment per team member ────────────────────────────────
+    assignments = []
+    for cand, resp in team_responders:
+        a = Assignment(
+            id=uuid.uuid4(),
+            sos_id=sos.id,
+            responder_id=resp.id,
+            eta_minutes=ai_result.get("eta_minutes", cand["eta_minutes"]),
+            distance_m=round(cand["distance_m"]),
+            ai_reason=ai_result.get("reason"),
+            assigned_at=datetime.now(timezone.utc),
+        )
+        db.add(a)
+        resp.status = ResponderStatus.en_route
+        assignments.append((a, cand, resp))
+
+    sos.status = SOSStatus.assigned
+    await db.commit()
+    for a, _, _ in assignments:
+        await db.refresh(a)
+
+    # ── Publish combined team event ───────────────────────────────────────────
+    primary_assignment, primary_cand, primary_resp = assignments[0]
+    onto = primary_cand.get("ontology", {})
+    team_members = [
+        {"responder_code": resp.code, "responder_name": resp.name, "role": resp.role.value,
+         "eta_minutes": a.eta_minutes, "distance_m": a.distance_m}
+        for a, _, resp in assignments
+    ]
+    is_team = len(assignments) > 1
+
+    await publish_assignment(primary_resp.code, {
+        "assignment_id": str(primary_assignment.id),
         "sos": _sos_dict(sos),
-        "responder_code": responder.code,
-        "responder_name": responder.name,
-        "eta_minutes": assignment.eta_minutes,
-        "distance_m": assignment.distance_m,
-        "ai_reason": assignment.ai_reason,
-        "ai_available": assignment.ai_available,
+        "responder_code": primary_resp.code,
+        "responder_name": primary_resp.name,
+        "eta_minutes": primary_assignment.eta_minutes,
+        "distance_m": primary_assignment.distance_m,
+        "ai_reason": ai_result.get("reason"),
+        "ai_available": ai_result.get("ai_available", False),
         "ai_override": ai_result.get("override", False),
-        "confidence": assignment.confidence,
-        "triage": triage_result,
-        "composite_score": chosen.get("composite_score"),
-        "score_breakdown": chosen.get("score_breakdown"),
-        "urgency_multiplier": chosen.get("urgency_multiplier"),
+        "confidence": ai_result.get("confidence"),
+        "is_team": is_team,
+        "team_reason": ai_result.get("team_reason") if is_team else None,
+        "team": team_members,
+        "composite_score": primary_cand.get("composite_score"),
+        "score_breakdown": primary_cand.get("score_breakdown"),
+        "urgency_multiplier": primary_cand.get("urgency_multiplier"),
         "ontology": {
             "required_skills": onto.get("required_skills", []),
             "required_equipment": onto.get("required_equipment", []),
@@ -161,7 +211,7 @@ async def _assign(sos_id: uuid.UUID, db: AsyncSession, triage_result: dict | Non
         },
     })
 
-    return assignment
+    return primary_assignment
 
 
 def _sos_dict(sos: SOSPacket) -> dict:

@@ -34,6 +34,9 @@ export const api = {
   setStatus: (code, status) =>
     request(`/responders/${code}/status?status=${status}`, { method: 'PATCH' }),
 
+  // Assignments
+  getAssignments: (limit = 20) => request(`/sos/assignments/recent?limit=${limit}`),
+
   // Ontology
   getEmergencyProfile: (type) => request(`/ontology/profile/${type}`),
   getHotspots: () => request('/ontology/hotspots'),

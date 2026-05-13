@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { ShieldCheck, Activity, Users, LayoutDashboard } from 'lucide-react'
 import LiveMap from '../../components/LiveMap'
 import { api } from '../../api'
@@ -94,9 +94,54 @@ export default function SupervisorApp() {
   const [dispatchTarget, setDispatchTarget] = useState(null)
   const [clock, setClock] = useState(() => new Date().toLocaleTimeString())
 
+  // Panel resize state
+  const [leftW, setLeftW] = useState(384)
+  const [rightW, setRightW] = useState(320)
+  const [mapPct, setMapPct] = useState(60) // map height % in center column
+  const drag = useRef(null)
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!drag.current) return
+      const { type, startX, startY, startVal } = drag.current
+      if (type === 'left') {
+        setLeftW(Math.max(240, Math.min(560, startVal + (e.clientX - startX))))
+      } else if (type === 'right') {
+        setRightW(Math.max(220, Math.min(560, startVal - (e.clientX - startX))))
+      } else if (type === 'map') {
+        const containerH = drag.current.containerH
+        const dy = e.clientY - startY
+        const newPct = Math.max(20, Math.min(80, startVal + (dy / containerH) * 100))
+        setMapPct(newPct)
+      }
+    }
+    const onUp = () => { drag.current = null; document.body.style.cursor = '' }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+  }, [])
+
+  const startDrag = (type, e, containerH) => {
+    e.preventDefault()
+    document.body.style.cursor = type === 'map' ? 'row-resize' : 'col-resize'
+    drag.current = {
+      type,
+      startX: e.clientX,
+      startY: e.clientY,
+      startVal: type === 'left' ? leftW : type === 'right' ? rightW : mapPct,
+      containerH,
+    }
+  }
+
+  const centerRef = useRef(null)
+
   useEffect(() => {
     api.getQueue().then(setPackets).catch(() => {})
     api.getResponders().then(setResponders).catch(() => {})
+    api.getAssignments().then(setAssignments).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -204,143 +249,165 @@ export default function SupervisorApp() {
         </div>
       )}
 
-      {tab !== 'teams' && (
-        <div className="flex-1 flex gap-0 overflow-hidden">
-          <div className="w-96 border-r border-ops-border flex flex-col">
-            <div className="px-5 py-4 border-b border-ops-border">
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">SOS Queue</p>
-              <p className="text-3xl font-black text-white">
-                {pending.length} <span className="text-lg font-semibold text-gray-500">pending</span>
-              </p>
-            </div>
+      {tab !== 'teams' && <div className="flex-1 flex gap-0 overflow-hidden">
+        {/* Left — SOS queue */}
+        <div className="border-r border-ops-border flex flex-col shrink-0" style={{ width: leftW }}>
+          <div className="px-5 py-4 border-b border-ops-border">
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">SOS Queue</p>
+            <p className="text-3xl font-black text-white">
+              {pending.length} <span className="text-lg font-semibold text-gray-500">pending</span>
+            </p>
+          </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-              {packets.length === 0 && (
-                <p className="text-gray-600 text-sm text-center pt-8">No SOS packets yet.</p>
-              )}
-              {packets.map((pkt) => (
-                <div key={pkt.id} className={`border rounded-xl p-3 ${SEV_BG[pkt.severity] || SEV_BG.low}`}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white uppercase"
-                      style={{ backgroundColor: SEV_COLOR[pkt.severity] || '#666' }}
-                    >
-                      {pkt.severity}
-                    </span>
-                    <span className={`text-[10px] font-mono ${pkt.status === 'assigned' ? 'text-relay' : 'text-gray-500'}`}>
-                      {pkt.status}
-                    </span>
-                  </div>
-                  <p className="text-sm font-semibold text-white">{pkt.victim_code} - {pkt.emergency_type}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{packetPreview(pkt)}</p>
-                  
-                  <ExtractedDetailsTable packet={pkt} />
-
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {pkt.has_audio && (
-                      <span className="rounded-full border border-relay/30 bg-relay/10 px-2 py-0.5 text-[10px] font-mono text-relay">
-                        voice
-                      </span>
-                    )}
-                    {pkt.has_image && (
-                      <span className="rounded-full border border-gray-700 bg-black/20 px-2 py-0.5 text-[10px] font-mono text-gray-300">
-                        photo
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-[10px] font-mono text-gray-600">
-                      {new Date(pkt.created_at).toLocaleTimeString()}
-                    </p>
-                    {pkt.status === 'pending' && (
-                      <button
-                        onClick={() => setDispatchTarget(pkt)}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-relay/40 text-relay hover:bg-relay/10 transition-colors"
-                      >
-                        Manual dispatch
-                      </button>
-                    )}
-                  </div>
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            {packets.length === 0 && (
+              <p className="text-gray-600 text-sm text-center pt-8">No SOS packets yet.</p>
+            )}
+            {packets.map(pkt => (
+              <div
+                key={pkt.id}
+                className={`border rounded-xl p-3 ${SEV_BG[pkt.severity] || SEV_BG.low}`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white uppercase"
+                    style={{ backgroundColor: SEV_COLOR[pkt.severity] || '#666' }}
+                  >
+                    {pkt.severity}
+                  </span>
+                  <span className={`text-[10px] font-mono ${pkt.status === 'assigned' ? 'text-relay' : 'text-gray-500'}`}>
+                    {pkt.status}
+                  </span>
                 </div>
+                <p className="text-sm font-semibold text-white">{pkt.victim_code} · {pkt.emergency_type}</p>
+                <p className="text-xs text-gray-400 mt-0.5 truncate">{pkt.message || '—'}</p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[10px] font-mono text-gray-600">
+                    {new Date(pkt.created_at).toLocaleTimeString()}
+                  </p>
+                  {pkt.status === 'pending' && (
+                    <button
+                      onClick={() => setDispatchTarget(pkt)}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-relay/40 text-relay hover:bg-relay/10 transition-colors"
+                    >
+                      Manual dispatch
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Left ↔ Center drag handle */}
+        <div
+          className="w-1 shrink-0 cursor-col-resize bg-ops-border hover:bg-relay/60 transition-colors z-10"
+          onMouseDown={(e) => startDrag('left', e)}
+        />
+
+        {/* Center — Stats + Live Map + Assignment feed */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0" ref={centerRef}>
+          {/* Stats row */}
+          <div className="grid grid-cols-4 gap-3 p-4 border-b border-ops-border shrink-0">
+            <StatCard label="Pending SOS" value={pending.length} color="#E84040" sub="awaiting assignment" />
+            <StatCard label="Critical" value={critical.length} color="#E84040" sub="unassigned" />
+            <StatCard label="Assigned" value={assigned.length} color="#00C9D4" sub="en route" />
+            <StatCard label="Available" value={available.length} color="#22C55E" sub={`of ${responders.length}`} />
+          </div>
+
+          {/* Live Map */}
+          <div className="relative" style={{ flex: `0 0 ${mapPct}%`, minHeight: 120 }}>
+            <div className="absolute top-2 left-2 z-10 flex gap-2 pointer-events-none">
+              <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
+                <span className="w-2 h-2 rounded-full bg-critical inline-block" /> Critical SOS
+              </span>
+              <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
+                <span className="w-2 h-2 rounded-full bg-urgent inline-block" /> Urgent SOS
+              </span>
+              <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
+                <span className="w-2 h-2 rounded-full bg-relay inline-block" /> Responder
+              </span>
+            </div>
+            <LiveMap
+              packets={packets}
+              responders={responders}
+              assignments={assignments}
+              height="100%"
+              onSOSClick={(pkt) => setDispatchTarget(prev => prev?.id === pkt.id ? null : pkt)}
+            />
+          </div>
+
+          {/* Map ↕ Feed drag handle */}
+          <div
+            className="h-1 shrink-0 cursor-row-resize bg-ops-border hover:bg-relay/60 transition-colors z-10"
+            onMouseDown={(e) => startDrag('map', e, centerRef.current?.offsetHeight || 600)}
+          />
+
+          {/* Assignment feed */}
+          <div className="flex-1 overflow-y-auto px-4 py-3" style={{ minHeight: 80 }}>
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+              Live Assignment Feed
+            </p>
+            {assignments.length === 0 && (
+              <p className="text-gray-600 text-sm">Assignments appear here in real-time.</p>
+            )}
+            <div className="space-y-2">
+              {assignments.map((a, i) => (
+                <button
+                  key={`${a.assignment_id}-${i}`}
+                  onClick={() => setSelectedAssignment(a)}
+                  className="flex gap-3 w-full text-left fade-in group"
+                >
+                  <div className={`w-px self-stretch shrink-0 ${selectedAssignment?.assignment_id === a.assignment_id ? 'bg-relay' : 'bg-relay/30'}`} />
+                  <div className={`bg-ops-card border rounded-xl p-3 flex-1 transition-colors ${selectedAssignment?.assignment_id === a.assignment_id ? 'border-relay/50' : 'border-ops-border group-hover:border-relay/30'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <ShieldCheck size={12} className={a.is_team ? 'text-urgent' : 'text-relay'} />
+                      <span className={`text-xs font-bold ${a.is_team ? 'text-urgent' : 'text-relay'}`}>
+                        {a.is_team
+                          ? a.team?.map(t => t.responder_code).join(' + ')
+                          : a.responder_code
+                        } → {a.sos?.victim_code}
+                      </span>
+                      {a.is_team && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-urgent/10 border border-urgent/30 text-urgent font-mono">team</span>
+                      )}
+                      <span className="text-[10px] text-gray-500 ml-auto font-mono">
+                        {new Date(a.ts).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      ETA {a.eta_minutes ?? '—'} min · {a.distance_m ?? '—'} m
+                      {a.composite_score !== undefined && ` · score ${(a.composite_score * 100).toFixed(0)}/100`}
+                      {a.ai_available ? ' · Gemma 4 ✓' : ' · algo'}
+                    </p>
+                  </div>
+                </button>
               ))}
             </div>
           </div>
+        </div>
 
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="grid grid-cols-4 gap-3 p-4 border-b border-ops-border shrink-0">
-              <StatCard label="Pending SOS" value={pending.length} color="#E84040" sub="awaiting assignment" />
-              <StatCard label="Critical" value={critical.length} color="#E84040" sub="unassigned" />
-              <StatCard label="Assigned" value={assigned.length} color="#00C9D4" sub="en route" />
-              <StatCard label="Available" value={available.length} color="#22C55E" sub={`of ${responders.length}`} />
+        {/* Center ↔ Right drag handle */}
+        <div
+          className="w-1 shrink-0 cursor-col-resize bg-ops-border hover:bg-relay/60 transition-colors z-10"
+          onMouseDown={(e) => startDrag('right', e)}
+        />
+
+        {/* Right — Responder roster + Ontology panel */}
+        <div className="border-l border-ops-border flex flex-col shrink-0" style={{ width: rightW }}>
+          {/* Roster (top half) */}
+          <div className="border-b border-ops-border flex flex-col" style={{ maxHeight: '40%' }}>
+            <div className="px-4 py-3 border-b border-ops-border">
+              <p className="text-[10px] uppercase tracking-widest text-gray-500">Responders</p>
             </div>
-
-            <div className="relative border-b border-ops-border" style={{ flex: '0 0 60%' }}>
-              <div className="absolute top-2 left-2 z-10 flex gap-2 pointer-events-none">
-                <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
-                  <span className="w-2 h-2 rounded-full bg-critical inline-block" /> Critical SOS
-                </span>
-                <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
-                  <span className="w-2 h-2 rounded-full bg-urgent inline-block" /> Urgent SOS
-                </span>
-                <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md bg-black/60 text-gray-300">
-                  <span className="w-2 h-2 rounded-full bg-relay inline-block" /> Responder
-                </span>
-              </div>
-              <LiveMap
-                packets={packets}
-                responders={responders}
-                assignments={assignments}
-                height="100%"
-                onSOSClick={(pkt) => setDispatchTarget((prev) => (prev?.id === pkt.id ? null : pkt))}
-              />
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-4 py-3">
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Live Assignment Feed</p>
-              {assignments.length === 0 && (
-                <p className="text-gray-600 text-sm">Assignments appear here in real-time.</p>
-              )}
-              <div className="space-y-2">
-                {assignments.map((a, i) => (
-                  <button
-                    key={`${a.assignment_id}-${i}`}
-                    onClick={() => setSelectedAssignment(a)}
-                    className="flex gap-3 w-full text-left fade-in group"
-                  >
-                    <div className={`w-px self-stretch shrink-0 ${selectedAssignment?.assignment_id === a.assignment_id ? 'bg-relay' : 'bg-relay/30'}`} />
-                    <div className={`bg-ops-card border rounded-xl p-3 flex-1 transition-colors ${selectedAssignment?.assignment_id === a.assignment_id ? 'border-relay/50' : 'border-ops-border group-hover:border-relay/30'}`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <ShieldCheck size={12} className="text-relay" />
-                        <span className="text-xs font-bold text-relay">{a.responder_code} - {a.sos?.victim_code}</span>
-                        <span className="text-[10px] text-gray-500 ml-auto font-mono">
-                          {new Date(a.ts).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        ETA {a.eta_minutes ?? '-'} min · {a.distance_m ?? '-'} m
-                        {a.composite_score !== undefined && ` · score ${(a.composite_score * 100).toFixed(0)}/100`}
-                        {a.ai_available ? ' · Gemma 4' : ' · algo'}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="w-80 border-l border-ops-border flex flex-col">
-            <div className="border-b border-ops-border flex flex-col" style={{ maxHeight: '40%' }}>
-              <div className="px-4 py-3 border-b border-ops-border">
-                <p className="text-[10px] uppercase tracking-widest text-gray-500">Responders</p>
-              </div>
-              <div className="overflow-y-auto px-3 py-2 space-y-1.5">
-                {responders.map((r) => {
-                  const statusColor = {
-                    available: 'text-green-400',
-                    en_route: 'text-relay',
-                    busy: 'text-urgent',
-                    off_duty: 'text-gray-600',
-                  }[r.status] || 'text-gray-500'
+            <div className="overflow-y-auto px-3 py-2 space-y-1.5">
+              {responders.map(r => {
+                const statusColor = {
+                  available: 'text-green-400',
+                  en_route: 'text-relay',
+                  busy: 'text-urgent',
+                  off_duty: 'text-gray-600',
+                }[r.status] || 'text-gray-500'
 
                   return (
                     <div key={r.id} className="bg-ops-card border border-ops-border rounded-xl px-3 py-2">
@@ -373,7 +440,7 @@ export default function SupervisorApp() {
             </div>
           </div>
         </div>
-      )}
+      }
     </div>
   )
 }

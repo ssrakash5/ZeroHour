@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import get_db
@@ -234,6 +235,44 @@ async def get_queue(
         q = q.where(SOSPacket.status == status)
     result = await db.execute(q)
     return result.scalars().all()
+
+
+@router.get("/assignments/recent")
+async def get_recent_assignments(limit: int = 20, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Assignment)
+        .options(selectinload(Assignment.sos), selectinload(Assignment.responder))
+        .order_by(Assignment.assigned_at.desc())
+        .limit(limit)
+    )
+    rows = result.scalars().all()
+    out = []
+    for a in rows:
+        sos = a.sos
+        r = a.responder
+        out.append({
+            "assignment_id": str(a.id),
+            "sos": {
+                "id": str(sos.id),
+                "victim_code": sos.victim_code,
+                "packet_code": sos.packet_code,
+                "lat": sos.lat,
+                "lng": sos.lng,
+                "severity": sos.severity.value,
+                "emergency_type": sos.emergency_type.value,
+                "message": sos.message,
+                "status": sos.status.value,
+                "created_at": sos.created_at.isoformat(),
+            },
+            "responder_code": r.code if r else None,
+            "responder_name": r.name if r else None,
+            "eta_minutes": a.eta_minutes,
+            "distance_m": a.distance_m,
+            "ai_reason": a.ai_reason,
+            "ai_available": a.ai_reason is not None,
+            "ts": a.assigned_at.timestamp() * 1000,
+        })
+    return out
 
 
 @router.get("/{sos_id}", response_model=SOSOut)
