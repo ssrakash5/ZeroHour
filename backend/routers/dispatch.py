@@ -41,6 +41,8 @@ async def manual_dispatch(
         raise HTTPException(404, f"Responder {body.responder_code} not found")
     if responder.status == ResponderStatus.off_duty:
         raise HTTPException(400, "Responder is off duty")
+    if responder.status == ResponderStatus.en_route:
+        raise HTTPException(400, f"{body.responder_code} is already en route to another SOS")
 
     # Cancel any existing active assignment for this SOS
     existing = await db.execute(

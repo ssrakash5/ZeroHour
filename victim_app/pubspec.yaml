@@ -1,0 +1,28 @@
+name: zerohour_victim
+description: ZeroHour Victim Emergency App — on-device Gemma 4 via LiteRT
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_gemma: ^0.15.0       # LiteRT on-device Gemma 4 (MediaPipe)
+  geolocator: ^13.0.1          # GPS
+  record: ^6.0.0               # Microphone recording
+  http: ^1.2.1                 # Backend API calls
+  permission_handler: ^11.3.1  # Runtime permissions
+  image_picker: ^1.1.2         # Camera / gallery photos
+  shared_preferences: ^2.3.2   # Persist victim code
+  path_provider: ^2.1.4        # Device storage paths
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

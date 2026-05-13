@@ -13,6 +13,8 @@ class EmergencyProfile:
     equipment: tuple[str, ...]
     severity_weight: float      # how fast urgency degrades over time
     max_response_min: int       # golden-hour threshold for this type
+    # Roles to add when dispatching a team (critical/multi-victim scenarios)
+    team_support_roles: tuple[str, ...]  = ()
 
 
 EMERGENCY_ONTOLOGY: dict[str, EmergencyProfile] = {
@@ -23,6 +25,7 @@ EMERGENCY_ONTOLOGY: dict[str, EmergencyProfile] = {
         equipment=("Defibrillator", "First Aid Kit", "Stretcher", "O2 Tank", "IV Kit"),
         severity_weight=1.6,
         max_response_min=10,
+        team_support_roles=("rescue",),   # rescue for extrication to reach patient
     ),
     "trapped": EmergencyProfile(
         required_role="rescue",
@@ -31,6 +34,7 @@ EMERGENCY_ONTOLOGY: dict[str, EmergencyProfile] = {
         equipment=("Hydraulic Cutters", "Rope", "Hard Hat", "Shoring Kit", "Search Camera"),
         severity_weight=1.2,
         max_response_min=20,
+        team_support_roles=("medic",),    # medic to treat injuries on extraction
     ),
     "flood": EmergencyProfile(
         required_role="rescue",
@@ -39,6 +43,7 @@ EMERGENCY_ONTOLOGY: dict[str, EmergencyProfile] = {
         equipment=("Life Ring", "Inflatable Boat", "Rope", "Life Jacket", "Throw Bag"),
         severity_weight=1.3,
         max_response_min=15,
+        team_support_roles=("medic",),    # medic for hypothermia/drowning care
     ),
     "fire": EmergencyProfile(
         required_role="fire",
@@ -47,6 +52,7 @@ EMERGENCY_ONTOLOGY: dict[str, EmergencyProfile] = {
         equipment=("Breathing Apparatus", "Fire Extinguisher", "Hose", "Thermal Camera", "PPE"),
         severity_weight=1.5,
         max_response_min=8,
+        team_support_roles=("medic",),    # medic for burns/smoke inhalation
     ),
     "unknown": EmergencyProfile(
         required_role="medic",
