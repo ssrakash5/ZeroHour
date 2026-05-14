@@ -81,6 +81,8 @@ class LocationUpdate(BaseModel):
     lat: float
     lng: float
     battery: int | None = None
+    heart_rate: int | None = None
+    supplies_percent: int | None = None
 
 
 class ResponderOut(BaseModel):
@@ -94,6 +96,8 @@ class ResponderOut(BaseModel):
     lat: float | None
     lng: float | None
     last_seen: datetime | None
+    heart_rate: int | None = None
+    supplies_percent: int | None = None
 
     model_config = {"from_attributes": True}
 

@@ -50,9 +50,12 @@ Extract additional details from the message into these fields (DO NOT use null, 
 - `age`: <string> (e.g. "30s", "child", "Unknown")
 - `medical_conditions`: <string> (e.g. "Asthma", "None")
 - `quick_needs`: <string> (e.g. "Water", "Evacuation", "Unknown")
+- `consciousness_status`: <string> (e.g. "Awake", "Unconscious", "Unknown")
+- `mobility_status`: <string> (e.g. "Walking", "Trapped", "Unknown")
+- `hazards`: <string> (e.g. "Fire", "Gas Leak", "None")
 
 Return ONLY this JSON:
-{{"severity": "<critical|urgent|low>", "emergency_type": "<medical|trapped|flood|fire|unknown>", "reason": "<one sentence explaining criticality>", "confidence": <0.0-1.0>, "people_count": <int>, "calamity": "<string>", "age": "<string>", "medical_conditions": "<string>", "quick_needs": "<string>", "voice_transcript": "<string>"}}"""
+{{"severity": "<critical|urgent|low>", "emergency_type": "<medical|trapped|flood|fire|unknown>", "reason": "<one sentence explaining criticality>", "confidence": <0.0-1.0>, "people_count": <int>, "calamity": "<string>", "age": "<string>", "medical_conditions": "<string>", "quick_needs": "<string>", "voice_transcript": "<string>", "consciousness_status": "<string>", "mobility_status": "<string>", "hazards": "<string>"}}"""
 
 
 ASSIGNMENT_TEMPLATE = """{system}
@@ -165,6 +168,9 @@ async def triage_packet(sos: dict) -> dict:
             "medical_conditions": result.get("medical_conditions"),
             "quick_needs": result.get("quick_needs"),
             "voice_transcript": result.get("voice_transcript"),
+            "consciousness_status": result.get("consciousness_status"),
+            "mobility_status": result.get("mobility_status"),
+            "hazards": result.get("hazards"),
             "ai_available": True,
         }
     except Exception as e:

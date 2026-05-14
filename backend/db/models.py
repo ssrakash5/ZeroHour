@@ -88,6 +88,8 @@ class Responder(Base):
     lat: Mapped[float | None] = mapped_column(Float)
     lng: Mapped[float | None] = mapped_column(Float)
     last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    heart_rate: Mapped[int | None] = mapped_column(Integer, default=75)
+    supplies_percent: Mapped[int | None] = mapped_column(Integer, default=100)
 
     assignments: Mapped[list["Assignment"]] = relationship("Assignment", back_populates="responder")
 
