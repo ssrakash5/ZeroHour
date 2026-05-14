@@ -96,7 +96,18 @@ export default function LiveMap({
     L.tileLayer(DARK_TILE, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map)
     map.setView(center, zoom)
     mapRef.current = map
-    return () => { map.remove(); mapRef.current = null }
+
+    // Fix tile rendering when container is resized (panel drag, scroll, tab switch)
+    const ro = new ResizeObserver(() => {
+      map.invalidateSize({ animate: false })
+    })
+    ro.observe(containerRef.current)
+
+    return () => {
+      ro.disconnect()
+      map.remove()
+      mapRef.current = null
+    }
   }, [])
 
   // Update SOS markers

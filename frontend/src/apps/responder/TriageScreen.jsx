@@ -17,6 +17,19 @@ const SEVERITY_STYLES = {
   },
 }
 
+const SELF = { lat: 28.6280, lng: 77.2100, code: 'R-114' }
+
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2); 
+  return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
+}
+
 function extractField(message, label) {
   const line = (message || '')
     .split('\n')
@@ -28,9 +41,27 @@ function packetPreview(packet) {
   const message = packet.message || ''
   const baseMessage = message.split('---STRUCTURED_DATA---')[0].trim()
   
+  if (message.includes('---STRUCTURED_DATA---')) {
+    const parts = message.split('---STRUCTURED_DATA---')
+    try {
+      for (let i = parts.length - 1; i >= 1; i--) {
+        const jsonMatch = parts[i].match(/({[\s\S]*?})/)
+        if (jsonMatch) {
+          const structuredData = JSON.parse(jsonMatch[1])
+          if (structuredData.reason && structuredData.reason !== 'Unknown') {
+            return `AI Summary: ${structuredData.reason}`
+          }
+          break
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   return (
     extractField(baseMessage, 'Situation')
-    || baseMessage
+    || (baseMessage.length > 80 ? baseMessage.slice(0, 80) + '...' : baseMessage)
     || 'No message'
   )
 }
@@ -62,8 +93,11 @@ function ExtractedDetailsTable({ packet }) {
     { label: 'Calamity', value: structuredData.calamity },
     { label: 'Age', value: structuredData.age },
     { label: 'Medical', value: structuredData.medical_conditions },
-    { label: 'Quick Needs', value: structuredData.quick_needs }
-  ].filter(f => f.value)
+    { label: 'Quick Needs', value: structuredData.quick_needs },
+    { label: 'Consciousness', value: structuredData.consciousness_status },
+    { label: 'Mobility', value: structuredData.mobility_status },
+    { label: 'Hazards', value: structuredData.hazards }
+  ].filter(f => f.value && f.value !== 'Unknown' && f.value !== 'None')
 
   if (fields.length === 0) return null
 
@@ -184,9 +218,17 @@ export default function TriageScreen({ onSelectPacket }) {
                 </span>
               </div>
 
-              <p className="text-sm font-semibold text-white mb-1">
+              <p className="text-sm font-semibold text-white mb-0.5">
                 {pkt.victim_code} - {pkt.emergency_type}
               </p>
+              <a 
+                href={`https://www.google.com/maps/search/?api=1&query=${pkt.lat},${pkt.lng}`}
+                target="_blank" rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-[10px] font-mono text-blue-400 hover:text-blue-300 hover:underline mb-2 inline-block"
+              >
+                📍 {pkt.lat?.toFixed(5)}, {pkt.lng?.toFixed(5)} ({getDistanceKm(SELF.lat, SELF.lng, pkt.lat, pkt.lng)} km away)
+              </a>
               <p className="text-xs text-gray-400 leading-relaxed mb-2 line-clamp-3">
                 {packetPreview(pkt)}
                 {pkt.model_score ? ` - model ${pkt.model_score}` : ''}
@@ -209,7 +251,7 @@ export default function TriageScreen({ onSelectPacket }) {
 
               <div className="flex items-center justify-between text-[10px] font-mono text-gray-500">
                 <span>{pkt.hops} hops</span>
-                <span>{new Date(pkt.created_at).toLocaleTimeString()}</span>
+                <span>{new Date(pkt.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
               </div>
             </button>
           )

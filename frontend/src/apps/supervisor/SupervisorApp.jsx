@@ -264,9 +264,10 @@ export default function SupervisorApp() {
               <p className="text-gray-600 text-sm text-center pt-8">No SOS packets yet.</p>
             )}
             {packets.map(pkt => (
-              <div
+              <button
                 key={pkt.id}
-                className={`border rounded-xl p-3 ${SEV_BG[pkt.severity] || SEV_BG.low}`}
+                onClick={() => setDispatchTarget(pkt)}
+                className={`w-full text-left border rounded-xl p-3 transition-colors hover:brightness-110 ${SEV_BG[pkt.severity] || SEV_BG.low}`}
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <span
@@ -280,21 +281,17 @@ export default function SupervisorApp() {
                   </span>
                 </div>
                 <p className="text-sm font-semibold text-white">{pkt.victim_code} · {pkt.emergency_type}</p>
-                <p className="text-xs text-gray-400 mt-0.5 truncate">{pkt.message || '—'}</p>
+                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{packetPreview(pkt) || '—'}</p>
+                <ExtractedDetailsTable packet={pkt} />
                 <div className="flex items-center justify-between mt-2">
                   <p className="text-[10px] font-mono text-gray-600">
                     {new Date(pkt.created_at).toLocaleTimeString()}
                   </p>
-                  {pkt.status === 'pending' && (
-                    <button
-                      onClick={() => setDispatchTarget(pkt)}
-                      className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-relay/40 text-relay hover:bg-relay/10 transition-colors"
-                    >
-                      Manual dispatch
-                    </button>
-                  )}
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-relay/40 text-relay">
+                    {pkt.status === 'pending' ? 'Tap to dispatch →' : 'View details →'}
+                  </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -416,11 +413,14 @@ export default function SupervisorApp() {
                         <span className={`text-[10px] font-mono ${statusColor}`}>{r.status}</span>
                       </div>
                       <p className="text-xs text-gray-500">{r.name} - {r.role} - S{r.sector}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1 h-1 bg-ops rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-green-500" style={{ width: `${r.battery}%` }} />
-                        </div>
-                        <span className="text-[10px] font-mono text-gray-500">{r.battery}%</span>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="text-[10px] font-mono text-gray-500">BAT: {r.battery}%</span>
+                        <span className={`text-[10px] font-mono ${r.heart_rate > 120 || r.heart_rate < 50 ? 'text-critical font-bold animate-pulse' : 'text-gray-500'}`}>
+                          BPM: {r.heart_rate || '--'}
+                        </span>
+                        <span className={`text-[10px] font-mono ${r.supplies_percent < 20 ? 'text-urgent font-bold' : 'text-gray-500'}`}>
+                          SUP: {r.supplies_percent || '--'}%
+                        </span>
                       </div>
                     </div>
                   )

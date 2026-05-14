@@ -1,5 +1,18 @@
 import { X, ArrowRight } from 'lucide-react'
 
+const SELF = { lat: 28.6280, lng: 77.2100, code: 'R-114' }
+
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2); 
+  return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
+}
+
 export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
   if (!packet) return null
 
@@ -43,7 +56,10 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
     calamity,
     age,
     medical_conditions: medicalConditions,
-    quick_needs: quickNeeds
+    quick_needs: quickNeeds,
+    consciousness_status: consciousness,
+    mobility_status: mobility,
+    hazards: hazards
   } = structuredData
 
   // Build a hop path from hops count
@@ -63,24 +79,26 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Sheet */}
-      <div className="relative bg-ops-card rounded-t-3xl border-t border-ops-border px-5 pt-4 pb-6 fade-in">
+      <div className="relative bg-ops-card rounded-t-3xl border-t border-ops-border pt-4 flex flex-col max-h-[85vh] fade-in">
         {/* Handle */}
-        <div className="w-10 h-1 bg-ops-border rounded-full mx-auto mb-4" />
+        <div className="w-10 h-1 bg-ops-border rounded-full mx-auto mb-2 shrink-0" />
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-5 pt-2 pb-2">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-critical text-white uppercase tracking-wide">
             {packet.severity}
           </span>
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] text-gray-500">{packet.packet_code}</span>
             <span className="font-mono text-[10px] text-gray-500">
-              {new Date(packet.created_at).toLocaleTimeString()}
+              {new Date(packet.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
             </span>
           </div>
         </div>
 
-        <p className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+        <p className="text-lg font-bold text-white mb-0.5 flex items-center gap-2">
           {packet.victim_code} · {packet.emergency_type}
           {peopleCount && (
             <span className="text-[10px] font-mono bg-ops text-gray-400 px-2 py-0.5 rounded-full border border-ops-border">
@@ -88,6 +106,13 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
             </span>
           )}
         </p>
+        <a 
+          href={`https://www.google.com/maps/search/?api=1&query=${packet.lat},${packet.lng}`}
+          target="_blank" rel="noopener noreferrer"
+          className="text-xs font-mono text-blue-400 hover:text-blue-300 hover:underline mb-3 flex items-center gap-1.5 w-fit"
+        >
+          📍 {packet.lat?.toFixed(5)}, {packet.lng?.toFixed(5)} ({getDistanceKm(SELF.lat, SELF.lng, packet.lat, packet.lng)} km away)
+        </a>
         <p className="text-sm text-gray-400 mb-3 whitespace-pre-wrap">"{baseMessage || 'No message'}"</p>
 
         {/* Extracted Details Table */}
@@ -121,10 +146,28 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
                   <span className="w-2/3 text-xs text-white font-mono">{medicalConditions}</span>
                 </div>
               )}
-              {quickNeeds && (
+              {quickNeeds && quickNeeds !== 'Unknown' && quickNeeds !== 'None' && (
                 <div className="flex px-3 py-2">
                   <span className="w-1/3 text-xs text-gray-500 font-medium">Quick Needs</span>
                   <span className="w-2/3 text-xs text-white font-mono">{quickNeeds}</span>
+                </div>
+              )}
+              {consciousness && consciousness !== 'Unknown' && consciousness !== 'None' && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">Consciousness</span>
+                  <span className={`w-2/3 text-xs font-mono ${consciousness.toLowerCase().includes('unconscious') ? 'text-critical font-bold' : 'text-white'}`}>{consciousness}</span>
+                </div>
+              )}
+              {mobility && mobility !== 'Unknown' && mobility !== 'None' && (
+                <div className="flex px-3 py-2">
+                  <span className="w-1/3 text-xs text-gray-500 font-medium">Mobility</span>
+                  <span className={`w-2/3 text-xs font-mono ${mobility.toLowerCase().includes('trapped') ? 'text-critical font-bold' : 'text-white'}`}>{mobility}</span>
+                </div>
+              )}
+              {hazards && hazards !== 'Unknown' && hazards !== 'None' && (
+                <div className="flex px-3 py-2 bg-critical/10">
+                  <span className="w-1/3 text-xs text-critical font-bold">Hazards</span>
+                  <span className="w-2/3 text-xs text-critical font-bold font-mono">{hazards}</span>
                 </div>
               )}
             </div>
@@ -200,22 +243,25 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
             })}
           </div>
         </div>
+        </div>
 
-        {/* Actions */}
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3.5 rounded-xl border border-ops-border text-sm text-gray-400 font-semibold"
-          >
-            Defer
-          </button>
-          <button
-            onClick={() => { onDispatch(packet); onClose() }}
-            className="flex-[2] py-3.5 rounded-xl bg-relay text-ops text-sm font-bold flex items-center justify-center gap-2"
-          >
-            <span className="text-base">🛡</span>
-            Acknowledge · dispatch me
-          </button>
+        {/* Pinned Actions */}
+        <div className="px-5 pt-3 pb-6 shrink-0 border-t border-ops-border/30 bg-ops-card">
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3.5 rounded-xl border border-ops-border text-sm text-gray-400 font-semibold hover:bg-white/5 transition-colors"
+            >
+              Defer
+            </button>
+            <button
+              onClick={() => { onDispatch(packet); onClose() }}
+              className="flex-[2] py-3.5 rounded-xl bg-relay hover:bg-relay/90 transition-colors text-ops text-sm font-bold flex items-center justify-center gap-2"
+            >
+              <span className="text-base">🛡</span>
+              Acknowledge · dispatch me
+            </button>
+          </div>
         </div>
       </div>
     </div>
