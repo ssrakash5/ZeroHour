@@ -4,7 +4,7 @@
 
 Offline-first disaster response powered by two tiers of Gemma 4 — **Gemma 4 E2B on-device** triages in any language with no internet, relayed over BLE GATT through drones to the hub where **Gemma 4 26B** assigns the nearest responder in real time.
 
-A victim speaks Telugu. A drone overhead picks up the SOS over Bluetooth. A responder in a different state gets the assignment in English. All of it works when the towers are down.
+A victim speaks Telugu. A drone overhead picks up the SOS over Bluetooth. A responder already on the ground — who may not speak Malayalam or Telugu — gets the full situation in English. All of it works when the towers are down.
 
 Built for the **Gemma 4 Impact Challenge** · Global Resilience + LiteRT tracks · May 2026.
 

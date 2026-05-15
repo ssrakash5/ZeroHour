@@ -63,3 +63,10 @@ async def publish_location_update(responder_code: str, lat: float, lng: float):
         "lat": lat,
         "lng": lng,
     })
+
+
+async def publish_status_update(responder_code: str, status: str):
+    await publish("supervisor", "responder:status", {
+        "responder_code": responder_code,
+        "status": status,
+    })

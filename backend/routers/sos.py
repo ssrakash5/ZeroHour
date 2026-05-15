@@ -12,6 +12,7 @@ from db.database import get_db
 from db.models import Assignment, EmergencyType, Responder, ResponderStatus, SOSPacket, SOSStatus, Severity
 from schemas import SOSCreate, SOSOut, SOSWithAssignment
 from services.assignment import run_assignment_in_session
+from services.pubsub import publish
 from services.geo import GeoPoint, haversine_m
 from services.gemma import triage_packet
 
@@ -301,4 +302,5 @@ async def resolve_sos(sos_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     sos.status = SOSStatus.resolved
     await db.commit()
     await db.refresh(sos)
+    await publish("supervisor", "sos:resolved", {"id": str(sos.id)})
     return sos

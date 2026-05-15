@@ -334,11 +334,6 @@ class PacketSummaryScreen extends StatelessWidget {
           color: _gray400, fontSize: 10, letterSpacing: 2,
           fontFamily: 'monospace', fontWeight: FontWeight.w700));
 
-  Widget _label(String text) => Text(text,
-      style: const TextStyle(
-          color: _gray400, fontSize: 9, letterSpacing: 1.5,
-          fontFamily: 'monospace', fontWeight: FontWeight.w700));
-
   Widget _sectionCard({required Widget child, Color? color, Color? borderColor}) {
     return Container(
       width: double.infinity,

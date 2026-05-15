@@ -79,7 +79,7 @@ export default function LiveMap({
   responders = [],
   assignments = [],
   selfLocation = null,   // { lat, lng } — for responder "you are here"
-  center = [28.6139, 77.2090],
+  center = [9.9312, 76.2673],
   zoom = 14,
   height = '100%',
   dark = true,
@@ -109,6 +109,11 @@ export default function LiveMap({
       mapRef.current = null
     }
   }, [])
+
+  // Re-center when center prop changes (e.g. switching scenarios)
+  useEffect(() => {
+    if (mapRef.current) mapRef.current.setView(center, zoom)
+  }, [center[0], center[1]])
 
   // Update SOS markers
   useEffect(() => {

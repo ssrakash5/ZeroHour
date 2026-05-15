@@ -1,6 +1,7 @@
-import { X, ArrowRight } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowRight, CheckCircle } from 'lucide-react'
 
-const SELF = { lat: 28.6280, lng: 77.2100, code: 'R-114' }
+const DEFAULT_SELF = { lat: 9.9312, lng: 76.2673, code: 'R-114' }
 
 function getDistanceKm(lat1, lon1, lat2, lon2) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -13,7 +14,11 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
   return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
 }
 
-export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
+export default function PacketDetailSheet({ packet, self: selfProp, dispatched, selfStatus, onClose, onDispatch, onMissionComplete }) {
+  const self = selfProp || DEFAULT_SELF
+  const [acked, setAcked] = useState(() => dispatched?.includes(packet?.id) ?? false)
+  const alreadyDispatched = !acked && selfStatus === 'en_route'
+
   if (!packet) return null
 
   const score = packet.model_score ?? 0
@@ -111,7 +116,7 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
           target="_blank" rel="noopener noreferrer"
           className="text-xs font-mono text-blue-400 hover:text-blue-300 hover:underline mb-3 flex items-center gap-1.5 w-fit"
         >
-          📍 {packet.lat?.toFixed(5)}, {packet.lng?.toFixed(5)} ({getDistanceKm(SELF.lat, SELF.lng, packet.lat, packet.lng)} km away)
+          📍 {packet.lat?.toFixed(5)}, {packet.lng?.toFixed(5)} ({getDistanceKm(self.lat, self.lng, packet.lat, packet.lng)} km away)
         </a>
         <p className="text-sm text-gray-400 mb-3 whitespace-pre-wrap">"{baseMessage || 'No message'}"</p>
 
@@ -247,21 +252,48 @@ export default function PacketDetailSheet({ packet, onClose, onDispatch }) {
 
         {/* Pinned Actions */}
         <div className="px-5 pt-3 pb-6 shrink-0 border-t border-ops-border/30 bg-ops-card">
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 py-3.5 rounded-xl border border-ops-border text-sm text-gray-400 font-semibold hover:bg-white/5 transition-colors"
-            >
-              Defer
-            </button>
-            <button
-              onClick={() => { onDispatch(packet); onClose() }}
-              className="flex-[2] py-3.5 rounded-xl bg-relay hover:bg-relay/90 transition-colors text-ops text-sm font-bold flex items-center justify-center gap-2"
-            >
-              <span className="text-base">🛡</span>
-              Acknowledge · dispatch me
-            </button>
-          </div>
+          {acked ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-relay/10 border border-relay/30">
+                <CheckCircle size={16} className="text-relay" />
+                <span className="text-relay text-sm font-bold">Dispatched — en route</span>
+              </div>
+              <button
+                onClick={() => { onMissionComplete?.(packet); onClose() }}
+                className="py-3 rounded-xl border border-green-600/40 text-green-400 text-sm font-semibold hover:bg-green-500/10 transition-colors"
+              >
+                ✓ Victim rescued — mark me available
+              </button>
+            </div>
+          ) : alreadyDispatched ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-ops border border-ops-border">
+                <span className="text-gray-400 text-sm">Already en route to another incident</span>
+              </div>
+              <button
+                onClick={onClose}
+                className="py-2.5 rounded-xl border border-ops-border text-sm text-gray-400 font-semibold hover:bg-white/5 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 py-3.5 rounded-xl border border-ops-border text-sm text-gray-400 font-semibold hover:bg-white/5 transition-colors"
+              >
+                Defer
+              </button>
+              <button
+                onClick={() => { setAcked(true); onDispatch(packet); setTimeout(onClose, 1200) }}
+                className="flex-[2] py-3.5 rounded-xl bg-relay hover:bg-relay/90 transition-colors text-ops text-sm font-bold flex items-center justify-center gap-2"
+              >
+                <span className="text-base">🛡</span>
+                Acknowledge · dispatch me
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8001'
+export const SELF_CODE = import.meta.env.VITE_RESPONDER_CODE || 'R-114'
 const WS_BASE = BASE.replace(/^http/, 'ws')
 
 async function request(path, options = {}) {

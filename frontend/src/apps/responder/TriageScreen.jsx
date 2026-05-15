@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { api } from '../../api'
 import { useWebSocket } from '../../hooks/useWebSocket'
 
+const DEFAULT_SELF = { lat: 9.9312, lng: 76.2673, code: 'R-114' }
+
 const SEVERITY_STYLES = {
   critical: {
     badge: 'bg-critical text-white',
@@ -16,8 +18,6 @@ const SEVERITY_STYLES = {
     card: 'border-ops-border',
   },
 }
-
-const SELF = { lat: 28.6280, lng: 77.2100, code: 'R-114' }
 
 function getDistanceKm(lat1, lon1, lat2, lon2) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -115,7 +115,8 @@ function ExtractedDetailsTable({ packet }) {
   )
 }
 
-export default function TriageScreen({ onSelectPacket }) {
+export default function TriageScreen({ onSelectPacket, dispatched = [], onMissionComplete, rescued = 0, self: selfProp, ping, peerCount }) {
+  const self = selfProp || DEFAULT_SELF
   const [packets, setPackets] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -147,29 +148,40 @@ export default function TriageScreen({ onSelectPacket }) {
         prev.map((p) => (p.id === msg.payload.sos?.id ? { ...p, status: 'assigned' } : p)),
       )
     }
+    if (msg.event === 'sos:resolved') {
+      setPackets((prev) => prev.filter((p) => p.id !== msg.payload.id))
+    }
   })
 
-  const filtered = filter === 'all' ? packets : packets.filter((p) => p.severity === filter)
-  const critCount = packets.filter((p) => p.severity === 'critical').length
-  const urgCount = packets.filter((p) => p.severity === 'urgent').length
-  const openCount = packets.filter((p) => p.status === 'pending').length
+  const visible = packets.filter((p) => p.status !== 'resolved')
+  const filtered = filter === 'all' ? visible : visible.filter((p) => p.severity === filter)
+  const critCount = visible.filter((p) => p.severity === 'critical').length
+  const urgCount = visible.filter((p) => p.severity === 'urgent').length
+  const openCount = visible.filter((p) => p.status === 'pending').length
 
   return (
     <div className="flex flex-col h-full bg-ops">
       <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
         <div className="flex items-center gap-1.5 text-xs text-gray-500">
           <span className="w-1.5 h-1.5 rounded-full bg-relay" />
-          <span>3 peers - 84 ms</span>
+          <span>{peerCount ?? '—'} peers{ping != null ? ` · ${ping} ms` : ''}</span>
         </div>
-        <span className="font-mono text-xs text-relay">R-114</span>
+        <span className="font-mono text-xs text-relay">{self.code}</span>
       </div>
 
       <div className="px-4 pt-3 pb-2">
         <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-0.5">Triage Queue</p>
-        <p className="text-4xl font-black text-white">
-          {openCount} <span className="text-xl font-semibold text-gray-500">open</span>
-        </p>
-        <p className="text-xs text-gray-500 mt-1 font-mono">{packets.length} packets - live</p>
+        <div className="flex items-end gap-4">
+          <p className="text-4xl font-black text-white">
+            {openCount} <span className="text-xl font-semibold text-gray-500">open</span>
+          </p>
+          {rescued > 0 && (
+            <p className="text-2xl font-black text-green-400 mb-0.5">
+              {rescued} <span className="text-base font-semibold text-green-600">rescued</span>
+            </p>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 mt-1 font-mono">{visible.length} active packets - live</p>
 
         <div className="flex gap-2 mt-3">
           {[
@@ -197,11 +209,16 @@ export default function TriageScreen({ onSelectPacket }) {
         )}
         {filtered.map((pkt) => {
           const style = SEVERITY_STYLES[pkt.severity] || SEVERITY_STYLES.low
+          const isDispatched = dispatched.includes(pkt.id)
           return (
             <button
               key={pkt.id}
               onClick={() => onSelectPacket(pkt)}
-              className={`w-full text-left bg-ops-card border rounded-2xl p-3.5 ${style.card}`}
+              className={`w-full text-left border rounded-2xl p-3.5 transition-colors ${
+                isDispatched
+                  ? 'bg-relay/5 border-relay/40'
+                  : `bg-ops-card ${style.card}`
+              }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -210,12 +227,17 @@ export default function TriageScreen({ onSelectPacket }) {
                   </span>
                   <span className="font-mono text-[10px] text-gray-500">{pkt.packet_code}</span>
                 </div>
-                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
-                  pkt.status === 'assigned' ? 'text-relay bg-relay/10' : 'text-gray-500'
-                }`}
-                >
-                  {pkt.status}
-                </span>
+                {isDispatched ? (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full text-relay bg-relay/15 border border-relay/30 font-bold">
+                    EN ROUTE
+                  </span>
+                ) : (
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    pkt.status === 'assigned' ? 'text-relay bg-relay/10' : 'text-gray-500'
+                  }`}>
+                    {pkt.status}
+                  </span>
+                )}
               </div>
 
               <p className="text-sm font-semibold text-white mb-0.5">
@@ -227,7 +249,7 @@ export default function TriageScreen({ onSelectPacket }) {
                 onClick={(e) => e.stopPropagation()}
                 className="text-[10px] font-mono text-blue-400 hover:text-blue-300 hover:underline mb-2 inline-block"
               >
-                📍 {pkt.lat?.toFixed(5)}, {pkt.lng?.toFixed(5)} ({getDistanceKm(SELF.lat, SELF.lng, pkt.lat, pkt.lng)} km away)
+                📍 {pkt.lat?.toFixed(5)}, {pkt.lng?.toFixed(5)} ({getDistanceKm(self.lat, self.lng, pkt.lat, pkt.lng)} km away)
               </a>
               <p className="text-xs text-gray-400 leading-relaxed mb-2 line-clamp-3">
                 {packetPreview(pkt)}
@@ -253,6 +275,15 @@ export default function TriageScreen({ onSelectPacket }) {
                 <span>{pkt.hops} hops</span>
                 <span>{new Date(pkt.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
               </div>
+
+              {isDispatched && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onMissionComplete?.(pkt) }}
+                  className="mt-2 w-full py-2 rounded-lg border border-green-600/40 text-green-400 text-xs font-semibold hover:bg-green-500/10 transition-colors"
+                >
+                  ✓ Victim rescued — mark me available
+                </button>
+              )}
             </button>
           )
         })}
