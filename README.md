@@ -2,9 +2,11 @@
 
 > **When the towers fall, ZeroHour still works.**
 
-AI-coordinated disaster response — offline-first SOS triage powered by **Gemma 4 E2B on-device**, relayed over BLE GATT through drones, dispatched by an intelligent hub. No internet. No cloud. No single point of failure.
+Offline-first disaster response powered by two tiers of Gemma 4 — **Gemma 4 E2B on-device** triages in any language with no internet, relayed over BLE GATT through drones to the hub where **Gemma 4 26B** assigns the nearest responder in real time.
 
-Built for the **Gemma 4 Impact Challenge** · Global Resilience track · May 2026.
+A victim speaks Telugu. A drone overhead picks up the SOS over Bluetooth. A responder in a different state gets the assignment in English. All of it works when the towers are down.
+
+Built for the **Gemma 4 Impact Challenge** · Global Resilience + LiteRT tracks · May 2026.
 
 ---
 
