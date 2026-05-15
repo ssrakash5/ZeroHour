@@ -178,12 +178,26 @@ export default function SupervisorApp() {
         ),
       )
     }
+    if (msg.event === 'sos:resolved') {
+      setPackets((prev) => prev.filter((p) => p.id !== msg.payload.id))
+      setRescuedCount((prev) => prev + 1)
+    }
+    if (msg.event === 'responder:status') {
+      setResponders((prev) =>
+        prev.map((r) =>
+          r.code === msg.payload.responder_code
+            ? { ...r, status: msg.payload.status }
+            : r,
+        ),
+      )
+    }
   })
 
   const pending = packets.filter((p) => p.status === 'pending')
   const assigned = packets.filter((p) => p.status === 'assigned')
   const critical = packets.filter((p) => p.severity === 'critical' && p.status === 'pending')
   const available = responders.filter((r) => r.status === 'available')
+  const [rescuedCount, setRescuedCount] = useState(0)
 
   return (
     <div className="min-h-screen bg-ops text-white flex flex-col" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -305,11 +319,12 @@ export default function SupervisorApp() {
         {/* Center — Stats + Live Map + Assignment feed */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0" ref={centerRef}>
           {/* Stats row */}
-          <div className="grid grid-cols-4 gap-3 p-4 border-b border-ops-border shrink-0">
+          <div className="grid grid-cols-5 gap-3 p-4 border-b border-ops-border shrink-0">
             <StatCard label="Pending SOS" value={pending.length} color="#E84040" sub="awaiting assignment" />
             <StatCard label="Critical" value={critical.length} color="#E84040" sub="unassigned" />
             <StatCard label="Assigned" value={assigned.length} color="#00C9D4" sub="en route" />
             <StatCard label="Available" value={available.length} color="#22C55E" sub={`of ${responders.length}`} />
+            <StatCard label="Rescued" value={rescuedCount} color="#22C55E" sub="this session" />
           </div>
 
           {/* Live Map */}
@@ -329,6 +344,8 @@ export default function SupervisorApp() {
               packets={packets}
               responders={responders}
               assignments={assignments}
+              center={[9.9312, 76.2673]}
+              zoom={13}
               height="100%"
               onSOSClick={(pkt) => setDispatchTarget(prev => prev?.id === pkt.id ? null : pkt)}
             />

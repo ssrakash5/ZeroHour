@@ -3,10 +3,10 @@ import LiveMap from '../../components/LiveMap'
 import { api } from '../../api'
 import { useWebSocket } from '../../hooks/useWebSocket'
 
-// Demo self-location for R-114 (would be GPS in real app)
-const SELF = { lat: 28.6280, lng: 77.2100, code: 'R-114' }
+const DEFAULT_SELF = { lat: 9.9312, lng: 76.2673, code: 'R-114' }
 
-export default function MapScreen() {
+export default function MapScreen({ self: selfProp }) {
+  const SELF = selfProp || DEFAULT_SELF
   const [packets, setPackets] = useState([])
   const [responders, setResponders] = useState([])
   const [assignments, setAssignments] = useState([])

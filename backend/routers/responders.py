@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.database import get_db
 from db.models import Responder, ResponderStatus
 from schemas import ResponderCreate, ResponderOut, LocationUpdate
-from services.pubsub import set_responder_location, get_all_live_locations, publish_location_update
+from services.pubsub import set_responder_location, get_all_live_locations, publish_location_update, publish_status_update
 
 router = APIRouter()
 
@@ -90,4 +90,5 @@ async def set_status(
     r.status = status
     await db.commit()
     await db.refresh(r)
+    await publish_status_update(code, status.value)
     return r

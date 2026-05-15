@@ -41,11 +41,13 @@ const SCORE_COLORS = {
 export default function OntologyPanel({ assignment }) {
   if (!assignment) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-600 text-sm">
+      <div className="flex items-center justify-center h-full text-gray-600 text-sm px-4 text-center">
         Select an assignment to see the reasoning chain.
       </div>
     )
   }
+
+  try {
 
   const onto = assignment.ontology || {}
   const breakdown = assignment.score_breakdown || {}
@@ -112,21 +114,13 @@ export default function OntologyPanel({ assignment }) {
         </div>
       )}
 
-      {/* AI Reason */}
-      {triage?.reason && (
+      {/* SOS context */}
+      {assignment.sos?.message && (
         <div className="bg-ops-card border border-ops-border rounded-xl p-3">
           <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5 flex items-center gap-1">
-            <AlertTriangle size={10} /> Criticality assignment
+            <AlertTriangle size={10} /> SOS context
           </p>
-          <p className="text-sm text-gray-300">
-            {triage.severity} / {triage.emergency_type}
-          </p>
-          <p className="mt-1 text-sm text-gray-400">{triage.reason}</p>
-          {triage.confidence && (
-            <p className="text-[10px] font-mono text-gray-500 mt-1">
-              confidence: {(triage.confidence * 100).toFixed(0)}%
-            </p>
-          )}
+          <p className="text-sm text-gray-300 italic">"{assignment.sos.message.split('---STRUCTURED_DATA---')[0].trim().slice(0, 200)}"</p>
         </div>
       )}
 
@@ -212,13 +206,20 @@ export default function OntologyPanel({ assignment }) {
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-ops-card border border-ops-border rounded-xl p-3">
           <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">ETA</p>
-          <p className="text-xl font-black text-white">{assignment.eta_minutes} <span className="text-sm text-gray-500">min</span></p>
+          <p className="text-xl font-black text-white">{assignment.eta_minutes ?? '—'} <span className="text-sm text-gray-500">min</span></p>
         </div>
         <div className="bg-ops-card border border-ops-border rounded-xl p-3">
           <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Distance</p>
-          <p className="text-xl font-black text-white">{assignment.distance_m} <span className="text-sm text-gray-500">m</span></p>
+          <p className="text-xl font-black text-white">{assignment.distance_m ?? '—'} <span className="text-sm text-gray-500">m</span></p>
         </div>
       </div>
     </div>
   )
+  } catch (e) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-600 text-sm px-4 text-center">
+        Could not render reasoning chain for this assignment.
+      </div>
+    )
+  }
 }

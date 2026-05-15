@@ -5,11 +5,11 @@ from db.database import SessionLocal
 from db.models import Responder, ResponderRole, ResponderStatus
 
 DEMO_RESPONDERS = [
-    {"code": "R-114", "name": "A. Kumar",  "role": ResponderRole.medic,   "sector": 14, "lat": 28.6280, "lng": 77.2100},
-    {"code": "R-118", "name": "S. Mehta",  "role": ResponderRole.medic,   "sector": 14, "lat": 28.6320, "lng": 77.2050},
-    {"code": "R-205", "name": "D. Rao",    "role": ResponderRole.rescue,  "sector": 14, "lat": 28.6200, "lng": 77.2200},
-    {"code": "R-312", "name": "P. Singh",  "role": ResponderRole.fire,    "sector": 15, "lat": 28.6350, "lng": 77.1950},
-    {"code": "R-401", "name": "M. Sharma", "role": ResponderRole.rescue,  "sector": 15, "lat": 28.6150, "lng": 77.2300},
+    {"code": "R-114", "name": "A. Kumar",  "role": ResponderRole.medic,   "sector": 14, "lat": 9.9312, "lng": 76.2673},  # Kochi hub
+    {"code": "R-118", "name": "S. Mehta",  "role": ResponderRole.medic,   "sector": 14, "lat": 9.9420, "lng": 76.2750},  # north Ernakulam
+    {"code": "R-205", "name": "D. Rao",    "role": ResponderRole.rescue,  "sector": 14, "lat": 9.9180, "lng": 76.2590},  # south Ernakulam
+    {"code": "R-312", "name": "P. Singh",  "role": ResponderRole.fire,    "sector": 15, "lat": 9.9550, "lng": 76.2980},  # near Aluva
+    {"code": "R-401", "name": "M. Sharma", "role": ResponderRole.rescue,  "sector": 15, "lat": 9.9280, "lng": 76.3100},  # toward Perumbavoor
 ]
 
 

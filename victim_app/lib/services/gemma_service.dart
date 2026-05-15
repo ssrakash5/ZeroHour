@@ -118,38 +118,4 @@ class GemmaService {
     return candidates.first;
   }
 
-  /// Like _bestValue but for original_transcript: prefers values containing
-  /// non-ASCII characters (native script — Telugu, Hindi, Arabic, etc.) over
-  /// pure-English values, since Gemma may produce both and the English one is
-  /// often longer.
-  String _bestNativeValue(String rawJson, String key) {
-    final pattern = RegExp('"$key":\\s*"((?:[^"\\\\]|\\\\.)*)"');
-    final values = pattern
-        .allMatches(rawJson)
-        .map((m) => m.group(1)!.replaceAll('\\"', '"').replaceAll('\\n', '\n'))
-        .toList();
-
-    if (values.isEmpty) return '';
-
-    final skipPatterns = RegExp(
-      r'^(Tasks:|You are|People needing|User hint|Voice note|Photos|Coordinates|GPS|Reporter|'
-      r'medical|fire|flood|structural|violence|unknown|critical|urgent|low|'
-      r'Analyze|Normalize|Classify|Summarize|Reply|Output|Single|Attached)',
-      caseSensitive: false,
-    );
-
-    final candidates = values.where((v) => v.length > 8 && !skipPatterns.hasMatch(v)).toList();
-    if (candidates.isEmpty) return values.first;
-
-    // First priority: values with non-ASCII characters (actual native script)
-    final nativeCandidates = candidates.where((v) => v.runes.any((r) => r > 127)).toList();
-    if (nativeCandidates.isNotEmpty) {
-      nativeCandidates.sort((a, b) => b.length.compareTo(a.length));
-      return nativeCandidates.first;
-    }
-
-    // Fallback: longest candidate (romanised native or only option)
-    candidates.sort((a, b) => b.length.compareTo(a.length));
-    return candidates.first;
-  }
 }

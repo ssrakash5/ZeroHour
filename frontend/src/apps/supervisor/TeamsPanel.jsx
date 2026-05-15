@@ -122,8 +122,8 @@ export default function TeamsPanel({ responders, onTeamAdded, onStatusChange }) 
     name: '',
     role: 'medic',
     sector: '',
-    lat: '28.6280',
-    lng: '77.2090',
+    lat: '9.9312',
+    lng: '76.2673',
     equipment: defaultEquip('medic'),
   })
 
