@@ -185,7 +185,7 @@ export default function TriageScreen({ onSelectPacket, dispatched = [], onMissio
 
         <div className="flex gap-2 mt-3">
           {[
-            ['all', `All - ${packets.length}`, 'border-ops-border text-white bg-ops-card'],
+            ['all', `All - ${visible.length}`, 'border-ops-border text-white bg-ops-card'],
             ['critical', `Crit - ${critCount}`, 'border-critical/50 text-critical'],
             ['urgent', `Urg - ${urgCount}`, 'border-urgent/50 text-urgent'],
           ].map(([val, label, cls]) => (

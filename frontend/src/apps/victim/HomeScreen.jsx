@@ -391,7 +391,7 @@ export default function HomeScreen({ onSend }) {
             Send proof first.
           </h1>
           <p className="mt-1 text-sm leading-relaxed text-gray-500">
-            Photos, voice, and location stay on top. The rest can wait.
+            Photos, voice, and location stay on top.
           </p>
           <p className="mt-2 text-xs font-medium text-relay">
             AI will assess the incident type and criticality from what you send.

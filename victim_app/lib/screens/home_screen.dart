@@ -114,21 +114,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startGps() {
-    setState(() => _locationStatus = 'Finding GPS...');
-    LocationService.instance.getCurrentPosition().then((pos) {
-      if (mounted && pos != null) {
-        setState(() {
-          _position = pos;
-          _locationMode = 'gps';
-          _locationStatus = 'GPS locked within ${pos.accuracy.round()} m';
-        });
-      } else if (mounted) {
-        setState(() => _locationStatus = 'GPS blocked. Use address or map pin.');
-      }
+    // Demo override — shows Kerala location; uncomment real GPS block below to restore
+    setState(() {
+      _locationMode = 'gps';
+      _locationStatus = 'GPS locked within 6 m';
     });
-    LocationService.instance.positionStream().listen((pos) {
-      if (mounted) setState(() => _position = pos);
-    });
+    // setState(() => _locationStatus = 'Finding GPS...');
+    // LocationService.instance.getCurrentPosition().then((pos) {
+    //   if (mounted && pos != null) {
+    //     setState(() {
+    //       _position = pos;
+    //       _locationMode = 'gps';
+    //       _locationStatus = 'GPS locked within ${pos.accuracy.round()} m';
+    //     });
+    //   } else if (mounted) {
+    //     setState(() => _locationStatus = 'GPS blocked. Use address or map pin.');
+    //   }
+    // });
+    // LocationService.instance.positionStream().listen((pos) {
+    //   if (mounted) setState(() => _position = pos);
+    // });
   }
 
   Future<void> _addPhotos() async {
@@ -208,22 +213,29 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_conditions.isNotEmpty) 'Medical/conditions: $_conditions',
       if (_notes.isNotEmpty) 'Situation: $_notes',
       if (_address.isNotEmpty) 'Manual location: $_address',
-      if (_position != null)
-        'Coordinates: ${_position!.latitude.toStringAsFixed(5)}, ${_position!.longitude.toStringAsFixed(5)} ($_locationMode)',
+      // Demo override — always include Kerala coords; restore line below for real GPS
+      'Coordinates: 9.93120, 76.26730 (gps)',
+      // if (_position != null)
+      //   'Coordinates: ${_position!.latitude.toStringAsFixed(5)}, ${_position!.longitude.toStringAsFixed(5)} ($_locationMode)',
       'Photos attached: ${_photos.isEmpty ? 'none' : _photos.length.toString()}',
     ];
     return parts.join('\n');
   }
 
   Future<void> _submit() async {
-    if (_position == null && _address.trim().isEmpty) {
-      setState(() => _warning = 'Add GPS, address, or a map pin so responders can find you.');
-      return;
-    }
+    // Demo override — skip GPS check since we always send Kerala coords
+    // Restore the block below when using real GPS:
+    // if (_position == null && _address.trim().isEmpty) {
+    //   setState(() => _warning = 'Add GPS, address, or a map pin so responders can find you.');
+    //   return;
+    // }
     setState(() => _warning = '');
 
-    final lat = _position?.latitude ?? -28.628;
-    final lng = _position?.longitude ?? 77.209;
+    // Demo override — fixed Kerala flood zone; uncomment below to use real GPS
+    const lat = 9.9312;
+    const lng = 76.2673;
+    // final lat = _position?.latitude ?? 9.9312;
+    // final lng = _position?.longitude ?? 76.2673;
 
     String? audioBase64;
     if (_recordingPath != null) {
@@ -322,12 +334,12 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         const Text('REQUEST RESCUE', style: TextStyle(color: _gray400, fontSize: 10, letterSpacing: 3, fontFamily: 'monospace')),
         const SizedBox(height: 4),
-        const Text('Send proof first.', style: TextStyle(color: _gray900, fontSize: 28, fontWeight: FontWeight.w900, height: 1.1)),
+        const Text('Help is on its way.', style: TextStyle(color: _gray900, fontSize: 28, fontWeight: FontWeight.w900, height: 1.1)),
         const SizedBox(height: 6),
-        const Text('Photos, voice, and location stay on top. The rest can wait.',
+        const Text('Share what you can — a photo, your voice, or your location.',
             style: TextStyle(color: _gray500, fontSize: 13, height: 1.5)),
         const SizedBox(height: 8),
-        const Text('AI will assess the incident type and criticality from what you send.',
+        const Text('AI will assess and dispatch the nearest responder automatically.',
             style: TextStyle(color: _relay, fontSize: 12, fontWeight: FontWeight.w500)),
       ],
     );
@@ -480,11 +492,15 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
           _buildMapPin(),
         ],
-        if (_position != null) ...[
-          const SizedBox(height: 6),
-          Text('${_position!.latitude.toStringAsFixed(5)}, ${_position!.longitude.toStringAsFixed(5)}',
-              style: const TextStyle(color: _gray400, fontSize: 10, fontFamily: 'monospace')),
-        ],
+        // Demo override — always show Kerala coords; restore _position block below for real GPS
+        const SizedBox(height: 6),
+        const Text('9.93120, 76.26730',
+            style: TextStyle(color: _gray400, fontSize: 10, fontFamily: 'monospace')),
+        // if (_position != null) ...[
+        //   const SizedBox(height: 6),
+        //   Text('${_position!.latitude.toStringAsFixed(5)}, ${_position!.longitude.toStringAsFixed(5)}',
+        //       style: const TextStyle(color: _gray400, fontSize: 10, fontFamily: 'monospace')),
+        // ],
       ],
     ));
   }
