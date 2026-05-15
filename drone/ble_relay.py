@@ -72,15 +72,25 @@ def parse_legacy_payload(data: bytes) -> dict | None:
 
 async def relay_to_hub(hub_url: str, packet: dict):
     """POST the SOS packet to the hub. Returns True on success."""
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(f"{hub_url}/sos/", json=packet)
-        print(f"[relay] POST /sos/ → {resp.status_code}  victim={packet.get('victim_code')}")
-        if resp.status_code in (200, 201):
-            data = resp.json()
-            assignment = data.get("assignment")
-            if assignment:
-                print(f"[relay] Responder: {assignment.get('responder_name')} ETA {assignment.get('eta_minutes')} min")
-            return True
+    try:
+        async with httpx.AsyncClient(timeout=45) as client:
+            resp = await client.post(f"{hub_url}/sos/", json=packet)
+            print(f"[relay] POST /sos/ → {resp.status_code}  victim={packet.get('victim_code')}")
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                assignment = data.get("assignment")
+                if assignment:
+                    print(f"[relay] Assigned: {assignment.get('responder_name')} ETA {assignment.get('eta_minutes')} min")
+                return True
+            else:
+                print(f"[relay] Hub rejected SOS: {resp.status_code} — {resp.text[:200]}")
+    except httpx.ConnectError:
+        print(f"[relay] Cannot reach hub at {hub_url} — is the backend running?")
+    except httpx.ReadTimeout:
+        print(f"[relay] Hub took too long to respond (AI triage running) — SOS was delivered, ACK will still send")
+        return True  # SOS reached the hub; timeout was on the response, not the send
+    except Exception as e:
+        print(f"[relay] Unexpected error: {type(e).__name__}: {e}")
     return False
 
 
@@ -132,7 +142,6 @@ async def handle_gatt_sos(device: BLEDevice, hub_url: str):
 
             print(f"[GATT] SOS from {code} | {sos.get('lat'):.5f},{sos.get('lng'):.5f} | "
                   f"{sos.get('emergency_type')} {sos.get('severity')} | "
-                  f"device_triage={'yes' if sos.get('device_triage') else 'no'} | "
                   f"message_len={len(sos.get('message') or '')}")
 
             # 2. Relay to hub
@@ -148,7 +157,7 @@ async def handle_gatt_sos(device: BLEDevice, hub_url: str):
                 await broadcast_ack(code)
 
     except Exception as e:
-        print(f"[GATT] Error reading {addr}: {e}")
+        print(f"[GATT] Error {addr}: {type(e).__name__}: {e or '(no message)'}")
     finally:
         _connecting.discard(addr)
 

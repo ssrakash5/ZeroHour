@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import VictimApp from './apps/victim/VictimApp'
+// import VictimApp from './apps/victim/VictimApp'
 import ResponderApp from './apps/responder/ResponderApp'
 import SupervisorApp from './apps/supervisor/SupervisorApp'
-import { BellRing, ShieldCheck, Monitor, ArrowLeft } from 'lucide-react'
+import { /* BellRing, */ ShieldCheck, Monitor, ArrowLeft } from 'lucide-react'
 
 const PHONE_W = 390
 const PHONE_H = 760
@@ -49,15 +49,15 @@ function BackButton({ onClick }) {
 export default function App() {
   const [role, setRole] = useState(null)
 
-  if (role === 'victim') {
-    return (
-      <div className="min-h-screen bg-[#0A0E14] flex flex-col items-center justify-center gap-6 p-4">
-        <BackButton onClick={() => setRole(null)} />
-        <PhoneFrame dark={false}><VictimApp /></PhoneFrame>
-        <p className="text-xs text-gray-600 font-mono">VICTIM · CALM LIGHT</p>
-      </div>
-    )
-  }
+  // if (role === 'victim') {
+  //   return (
+  //     <div className="min-h-screen bg-[#0A0E14] flex flex-col items-center justify-center gap-6 p-4">
+  //       <BackButton onClick={() => setRole(null)} />
+  //       <PhoneFrame dark={false}><VictimApp /></PhoneFrame>
+  //       <p className="text-xs text-gray-600 font-mono">VICTIM · CALM LIGHT</p>
+  //     </div>
+  //   )
+  // }
 
   if (role === 'responder') {
     return (
@@ -89,7 +89,7 @@ export default function App() {
       <p className="text-gray-500 text-sm mb-14 font-mono">AI-coordinated mesh rescue</p>
 
       <div className="flex flex-col sm:flex-row gap-4 w-full max-w-lg">
-        {[
+        {/* Victim card hidden — use the Flutter app instead
           {
             id: 'victim',
             label: 'Victim',
@@ -99,6 +99,8 @@ export default function App() {
             iconBg: 'bg-red-500/10 group-hover:bg-red-500/20',
             border: 'hover:border-red-500/30',
           },
+        */}
+        {[
           {
             id: 'responder',
             label: 'Responder',

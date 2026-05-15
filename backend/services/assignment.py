@@ -21,7 +21,7 @@ from services.geo import GeoPoint, eta_minutes, haversine_m
 from services.pubsub import publish_assignment, publish_sos_new
 from services.scorer import rank_candidates
 
-SEARCH_RADIUS_M = 5_000
+SEARCH_RADIUS_M = 999_999_999  # no geographic restriction — all available responders are candidates
 
 
 async def run_assignment(sos_id: uuid.UUID, triage_result: dict | None = None) -> Assignment | None:

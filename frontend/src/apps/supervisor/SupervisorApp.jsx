@@ -139,7 +139,12 @@ export default function SupervisorApp() {
   const centerRef = useRef(null)
 
   useEffect(() => {
-    api.getQueue().then(setPackets).catch(() => {})
+    api.getQueue().then(all => {
+      const resolved = all.filter(p => p.status === 'resolved')
+      setResolvedPackets(resolved)
+      setRescuedCount(resolved.length)
+      setPackets(all.filter(p => p.status !== 'resolved'))
+    }).catch(() => {})
     api.getResponders().then(setResponders).catch(() => {})
     api.getAssignments().then(setAssignments).catch(() => {})
   }, [])
@@ -179,7 +184,11 @@ export default function SupervisorApp() {
       )
     }
     if (msg.event === 'sos:resolved') {
-      setPackets((prev) => prev.filter((p) => p.id !== msg.payload.id))
+      setPackets((prev) => {
+        const pkt = prev.find(p => p.id === msg.payload.id)
+        if (pkt) setResolvedPackets(r => [{ ...pkt, status: 'resolved' }, ...r])
+        return prev.filter((p) => p.id !== msg.payload.id)
+      })
       setRescuedCount((prev) => prev + 1)
     }
     if (msg.event === 'responder:status') {
@@ -198,6 +207,8 @@ export default function SupervisorApp() {
   const critical = packets.filter((p) => p.severity === 'critical' && p.status === 'pending')
   const available = responders.filter((r) => r.status === 'available')
   const [rescuedCount, setRescuedCount] = useState(0)
+  const [queueTab, setQueueTab] = useState('pending')
+  const [resolvedPackets, setResolvedPackets] = useState([])
 
   return (
     <div className="min-h-screen bg-ops text-white flex flex-col" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -266,22 +277,50 @@ export default function SupervisorApp() {
       {tab !== 'teams' && <div className="flex-1 flex gap-0 overflow-hidden">
         {/* Left — SOS queue */}
         <div className="border-r border-ops-border flex flex-col shrink-0" style={{ width: leftW }}>
-          <div className="px-5 py-4 border-b border-ops-border">
+          <div className="px-5 pt-4 pb-0 border-b border-ops-border">
             <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">SOS Queue</p>
-            <p className="text-3xl font-black text-white">
+            <p className="text-3xl font-black text-white mb-3">
               {pending.length} <span className="text-lg font-semibold text-gray-500">pending</span>
             </p>
+            <div className="flex gap-1">
+              {[
+                { id: 'pending', label: `Active · ${packets.filter(p => p.status !== 'resolved').length}` },
+                { id: 'resolved', label: `Resolved · ${resolvedPackets.length}` },
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setQueueTab(t.id)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors ${
+                    queueTab === t.id
+                      ? 'border-relay text-relay bg-relay/5'
+                      : 'border-transparent text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-            {packets.length === 0 && (
-              <p className="text-gray-600 text-sm text-center pt-8">No SOS packets yet.</p>
+            {queueTab === 'pending' && packets.filter(p => p.status !== 'resolved').length === 0 && (
+              <p className="text-gray-600 text-sm text-center pt-8">No active SOS packets.</p>
             )}
-            {packets.map(pkt => (
+            {queueTab === 'resolved' && resolvedPackets.length === 0 && (
+              <p className="text-gray-600 text-sm text-center pt-8">No resolved incidents yet.</p>
+            )}
+            {(queueTab === 'pending'
+              ? packets.filter(p => p.status !== 'resolved')
+              : resolvedPackets
+            ).map(pkt => (
               <button
                 key={pkt.id}
-                onClick={() => setDispatchTarget(pkt)}
-                className={`w-full text-left border rounded-xl p-3 transition-colors hover:brightness-110 ${SEV_BG[pkt.severity] || SEV_BG.low}`}
+                onClick={() => queueTab === 'pending' && setDispatchTarget(pkt)}
+                className={`w-full text-left border rounded-xl p-3 transition-colors ${
+                  queueTab === 'resolved'
+                    ? 'border-ops-border opacity-70 cursor-default'
+                    : `hover:brightness-110 ${SEV_BG[pkt.severity] || SEV_BG.low}`
+                }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <span
@@ -290,8 +329,10 @@ export default function SupervisorApp() {
                   >
                     {pkt.severity}
                   </span>
-                  <span className={`text-[10px] font-mono ${pkt.status === 'assigned' ? 'text-relay' : 'text-gray-500'}`}>
-                    {pkt.status}
+                  <span className={`text-[10px] font-mono ${
+                    queueTab === 'resolved' ? 'text-green-500' : pkt.status === 'assigned' ? 'text-relay' : 'text-gray-500'
+                  }`}>
+                    {queueTab === 'resolved' ? '✓ rescued' : pkt.status}
                   </span>
                 </div>
                 <p className="text-sm font-semibold text-white">{pkt.victim_code} · {pkt.emergency_type}</p>
@@ -301,9 +342,11 @@ export default function SupervisorApp() {
                   <p className="text-[10px] font-mono text-gray-600">
                     {new Date(pkt.created_at).toLocaleTimeString()}
                   </p>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-relay/40 text-relay">
-                    {pkt.status === 'pending' ? 'Tap to dispatch →' : 'View details →'}
-                  </span>
+                  {queueTab === 'pending' && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-relay/40 text-relay">
+                      {pkt.status === 'pending' ? 'Tap to dispatch →' : 'View details →'}
+                    </span>
+                  )}
                 </div>
               </button>
             ))}
