@@ -10,7 +10,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^0.15.0       # LiteRT on-device Gemma 4 (MediaPipe)
   geolocator: ^13.0.1          # GPS
   record: ^6.0.0               # Microphone recording
   http: ^1.2.1                 # Backend API calls
