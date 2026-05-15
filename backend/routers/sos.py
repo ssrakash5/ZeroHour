@@ -154,7 +154,15 @@ async def _assignment_out(sos_id: uuid.UUID, db: AsyncSession) -> dict | None:
 
 @router.post("/", response_model=SOSWithAssignment, status_code=201)
 async def create_sos(body: SOSCreate, db: AsyncSession = Depends(get_db)):
-    triage = await triage_packet(_triage_request_dict(body))
+    if body.device_triage:
+        triage = body.device_triage
+        triage.setdefault("severity", "urgent")
+        triage.setdefault("emergency_type", "unknown")
+        triage.setdefault("reason", "On-device AI triage")
+        triage.setdefault("confidence", 0.8)
+        triage.setdefault("ai_available", True)
+    else:
+        triage = await triage_packet(_triage_request_dict(body))
     severity = _coerce_severity(triage.get("severity"))
     emergency_type = _coerce_emergency_type(triage.get("emergency_type"))
     enriched_message = _enrich_message(body.message, triage)

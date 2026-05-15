@@ -17,6 +17,7 @@ class ApiService {
     bool hasAudio = false,
     bool hasImage = false,
     int hops = 0,
+    Map<String, dynamic>? deviceTriage,
   }) async {
     final body = {
       'victim_code': victimCode,
@@ -29,6 +30,7 @@ class ApiService {
       'has_audio': hasAudio,
       'has_image': hasImage,
       'hops': hops,
+      if (deviceTriage != null) 'device_triage': deviceTriage,
     };
 
     final res = await http.post(

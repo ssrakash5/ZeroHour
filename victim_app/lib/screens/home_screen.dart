@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
+import '../services/gemma_service.dart';
 import '../services/location_service.dart';
 import 'sending_screen.dart';
 
@@ -77,12 +78,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _recordingTimer;
 
   String _warning = '';
+  bool _gemmaReady = false;
 
   @override
   void initState() {
     super.initState();
     _loadVictimCode();
     _requestPermissions();
+    GemmaService.instance.initialize().then((ready) {
+      if (mounted) setState(() => _gemmaReady = ready);
+    });
   }
 
   Future<void> _loadVictimCode() async {
@@ -97,7 +102,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _requestPermissions() async {
-    await [Permission.location, Permission.microphone, Permission.camera].request();
+    await [
+      Permission.location,
+      Permission.microphone,
+      Permission.camera,
+      Permission.bluetoothAdvertise,
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+    ].request();
     _startGps();
   }
 
@@ -126,13 +138,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _takePhoto() async {
+    final picked = await _imagePicker.pickImage(source: ImageSource.camera);
+    if (picked != null) {
+      setState(() => _photos = [..._photos, picked].take(4).toList());
+    }
+  }
+
   Future<void> _startRecording() async {
     _resetVoice();
     setState(() => _voiceStatus = 'Recording voice description...');
     try {
       final dir = await getTemporaryDirectory();
-      final path = '${dir.path}/sos_voice.aac';
-      await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+      final path = '${dir.path}/sos_voice.wav';
+      await _recorder.start(const RecordConfig(encoder: AudioEncoder.wav), path: path);
       setState(() {
         _isRecording = true;
         _recordingSeconds = 0;
@@ -222,6 +241,9 @@ class _HomeScreenState extends State<HomeScreen> {
       'has_audio': _recordingPath != null,
       'has_image': _photos.isNotEmpty,
       'audio_base64': audioBase64,
+      'audio_path': _recordingPath,
+      'image_paths': _photos.map((f) => f.path).toList(),
+      'recording_seconds': _recordingSeconds,
       'hops': 0,
     };
 
@@ -322,7 +344,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const Text('Show injury, flooding, collapse, or landmark.', style: TextStyle(color: _gray500, fontSize: 12)),
           ])),
           const SizedBox(width: 12),
-          _darkButton(Icons.camera_alt, 'Add', _addPhotos),
+          _darkButton(Icons.camera_alt, 'Camera', _takePhoto),
+          const SizedBox(width: 8),
+          _darkButton(Icons.photo_library_outlined, 'Gallery', _addPhotos),
         ]),
         const SizedBox(height: 12),
         if (_photos.isEmpty)
@@ -682,6 +706,21 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(_warning, style: const TextStyle(color: _critical, fontSize: 12, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
           const SizedBox(height: 8),
         ],
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            width: 6, height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _gemmaReady ? const Color(0xFF22C55E) : const Color(0xFFF59E0B),
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            _gemmaReady ? 'Gemma 4 E2B ready' : 'Gemma 4 E2B loading…',
+            style: TextStyle(fontSize: 11, color: _gemmaReady ? const Color(0xFF16A34A) : _gray500),
+          ),
+        ]),
+        const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(

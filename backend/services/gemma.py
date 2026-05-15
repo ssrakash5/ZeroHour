@@ -100,7 +100,7 @@ def _json_payload(prompt: str, audio_base64: str | None = None) -> dict:
     if audio_base64:
         parts.append({
             "inlineData": {
-                "mimeType": "audio/webm",
+                "mimeType": "audio/wav",
                 "data": audio_base64
             }
         })
@@ -108,7 +108,11 @@ def _json_payload(prompt: str, audio_base64: str | None = None) -> dict:
 
     return {
         "contents": [{"parts": parts}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 512},
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 1024,
+            "responseMimeType": "application/json",
+        },
     }
 
 
@@ -119,7 +123,7 @@ def _client() -> httpx.AsyncClient:
 
 
 async def _call_gemma(prompt: str, audio_base64: str | None = None, model: str | None = None) -> dict:
-    use_model = model or settings.GEMINI_MODEL
+    use_model = model or settings.GEMMA_MODEL
     url = GEMINI_URL.format(model=use_model, key=settings.GEMINI_API_KEY)
     async with _client() as client:
         resp = await client.post(url, json=_json_payload(prompt, audio_base64))
@@ -128,7 +132,30 @@ async def _call_gemma(prompt: str, audio_base64: str | None = None, model: str |
             logging.getLogger(__name__).error("Gemma API body: %s", resp.text)
         resp.raise_for_status()
         text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        return json.loads(text)
+        import re
+        # strip markdown code fences
+        stripped = re.sub(r'```(?:json)?\s*', '', text).strip()
+        match = re.search(r'\{[\s\S]*\}', stripped)
+        if match:
+            return json.loads(match.group(0))
+        # Model truncated mid-JSON — close the object and parse what we have
+        brace_start = stripped.find('{')
+        if brace_start != -1:
+            partial = stripped[brace_start:]
+            # drop the last incomplete line (no closing quote/comma)
+            lines = partial.rstrip().splitlines()
+            while lines and not lines[-1].rstrip().endswith(('},', '}', '",', '"')):
+                lines.pop()
+            # strip trailing comma from last field and close the object
+            last = lines[-1].rstrip().rstrip(',') if lines else ''
+            if lines:
+                lines[-1] = last
+            closed = '\n'.join(lines) + '\n}'
+            try:
+                return json.loads(closed)
+            except json.JSONDecodeError:
+                pass
+        raise ValueError(f"No JSON found in response: {text[:200]}")
 
 
 def _normalize_type(value: str | None) -> str:
@@ -156,7 +183,7 @@ async def triage_packet(sos: dict) -> dict:
     )
 
     try:
-        result = await _call_gemma(prompt, sos.get("audio_base64"), model=settings.GEMINI_TRIAGE_MODEL)
+        result = await _call_gemma(prompt, sos.get("audio_base64"), model=settings.GEMMA_TRIAGE_MODEL)
         return {
             "severity": _normalize_severity(result.get("severity")),
             "emergency_type": _normalize_type(result.get("emergency_type")),

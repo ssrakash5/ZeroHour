@@ -8,6 +8,7 @@ from db.models import Severity, EmergencyType, SOSStatus, ResponderRole, Respond
 # ── SOS ──────────────────────────────────────────────────────────────────────
 
 class SOSCreate(BaseModel):
+    model_config = {"extra": "ignore"}
     victim_code: str
     lat: float
     lng: float
@@ -18,6 +19,7 @@ class SOSCreate(BaseModel):
     has_image: bool = False
     audio_base64: str | None = None
     hops: int = 0
+    device_triage: dict | None = None  # pre-computed on-device triage result
 
 
 class SOSOut(BaseModel):
