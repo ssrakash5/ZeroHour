@@ -8,7 +8,12 @@ A victim speaks Telugu. A drone overhead picks up the SOS over Bluetooth. A resp
 
 Built for the **Gemma 4 Impact Challenge** · Global Resilience + LiteRT tracks · May 2026.
 
+[![Live Demo](https://img.shields.io/badge/Live-Dashboard-blue?style=for-the-badge)](https://zerohour-frontend-416804666735.us-central1.run.app)
+[![API Docs](https://img.shields.io/badge/API-Documentation-green?style=for-the-badge)](https://zerohour-backend-416804666735.us-central1.run.app/docs)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+
 ---
+
 
 ## The Problem — Kerala 2018
 
@@ -68,7 +73,7 @@ GPT-4V and Claude all require an API call. In a collapsed building with no cell 
 | Runs fully on-device | Disaster = no internet | ✅ 2B params, fits in phone RAM |
 | Natively multimodal | Victims send voice + photos | ✅ Text + Vision + Audio in one model |
 | Audio understanding | Most victims speak, not type | ✅ `Content.AudioFile()` via LiteRT-LM |
-| Open weights | No API key, no privacy risk, works forever | ✅ Apache 2.0 |
+| Open weights | No API key, no privacy risk, works forever | ✅ MIT License |
 | Android-optimized runtime | Needs to run in seconds on a mid-range phone | ✅ LiteRT (`com.google.ai.edge.litertlm`) |
 | Structured output | Triage needs `severity`, `emergency_type`, not prose | ✅ Native function calling / JSON mode |
 
@@ -237,9 +242,26 @@ flowchart TD
 | Real-time | Redis 7 (pub/sub + live location TTL cache) |
 | Hub AI | Gemma 4 26B (`gemma-4-26b-a4b-it`) via Google AI Studio |
 | Dashboard | React 18 + Vite + Tailwind CSS |
-| Infra | Docker Compose |
+| Dashboard | React 18 + Vite + Tailwind CSS |
+| Infra | GCP Cloud Run + Cloud SQL + Cloud Memorystore |
 
 ---
+
+## Live Deployment (GCP)
+
+ZeroHour is fully deployed on Google Cloud Platform using a containerized architecture on **Cloud Run**.
+
+*   **Frontend Dashboard**: [https://zerohour-frontend-416804666735.us-central1.run.app](https://zerohour-frontend-416804666735.us-central1.run.app)
+*   **Backend API**: [https://zerohour-backend-416804666735.us-central1.run.app](https://zerohour-backend-416804666735.us-central1.run.app)
+*   **Interactive API Docs**: [https://zerohour-backend-416804666735.us-central1.run.app/docs](https://zerohour-backend-416804666735.us-central1.run.app/docs)
+
+### Deployment Architecture
+The system uses **Docker** for all components, orchestrated in the cloud:
+1.  **FastAPI Backend**: Runs on Cloud Run, scaling from 0 to 3 instances.
+2.  **React Frontend**: Served via Nginx on Cloud Run.
+3.  **Database**: PostgreSQL on Cloud SQL.
+4.  **Cache/PubSub**: Redis on Cloud Memorystore.
+5.  **AI Triage**: Gemma 4 27B hosted via Google AI Studio.
 
 ## Project Structure
 
@@ -307,7 +329,7 @@ docker compose up -d
 uvicorn main:app --reload --port 8001 --host 0.0.0.0
 ```
 
-API docs: http://localhost:8001/docs
+API docs: [https://zerohour-backend-416804666735.us-central1.run.app/docs](https://zerohour-backend-416804666735.us-central1.run.app/docs)
 
 ### 2. Drone relay
 
@@ -330,7 +352,7 @@ flutter run -d <device-id>
 ```bash
 cd frontend
 npm install && npm run dev
-# http://localhost:5173
+# [https://zerohour-frontend-416804666735.us-central1.run.app](https://zerohour-frontend-416804666735.us-central1.run.app)
 ```
 
 ---
@@ -382,7 +404,7 @@ npm install && npm run dev
 
 1. SOS saved to Postgres → broadcast to supervisor via WebSocket
 2. All `available` responders queried; Haversine distance computed, filtered ≤ 5 km
-3. Top 5 candidates + triage context sent to Gemma 4 26B at hub
+3. Top 5 candidates + triage context sent to Gemma 4 27B at hub
 4. Model returns `{ assign, reason, eta_minutes, confidence }`
 5. Assignment persisted; responder marked `en_route`
 6. Redis pub/sub pushes to responder WebSocket in real time
@@ -395,11 +417,11 @@ Falls back to nearest role-matched responder if hub AI is unavailable.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `postgresql+asyncpg://zerohour:zerohour@localhost:5432/zerohour` | Postgres |
-| `REDIS_URL` | `redis://localhost:6379` | Redis |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama (hub-side Gemma) |
-| `OLLAMA_MODEL` | `gemma3:4b` | Hub triage model |
-| `GEMINI_API_KEY` | required | Google AI Studio API key for Gemma 4 26B hub triage |
+| `DATABASE_URL` | `postgresql+asyncpg://...` | Postgres (Cloud SQL) |
+| `REDIS_URL` | `redis://...` | Redis (Cloud Memorystore) |
+| `OLLAMA_URL` | N/A | (Using Gemini API instead of Ollama in production) |
+| `OLLAMA_MODEL` | N/A | - |
+| `GEMINI_API_KEY` | required | Google AI Studio API key for Gemma 4 27B hub triage |
 
 ---
 
@@ -410,4 +432,4 @@ Falls back to nearest role-matched responder if hub AI is unavailable.
 - **Deadline**: May 18 2026
 - **On-device model**: Gemma 4 E2B (`gemma.litertlm`) via `com.google.ai.edge.litertlm:0.11.0`
 - **Runtime**: Google AI Edge LiteRT — CPU backend, multimodal (vision + audio + text)
-- **Hub model**: Gemma 4 26B (`gemma-4-26b-a4b-it`) via Google AI Studio
+- **Hub model**: Gemma 4 27B (`gemma-4-27b-it`) via Google AI Studio
