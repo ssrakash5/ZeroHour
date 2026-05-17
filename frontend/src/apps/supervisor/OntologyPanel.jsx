@@ -143,7 +143,7 @@ export default function OntologyPanel({ assignment }) {
         <div className="bg-ops-card border border-ops-border rounded-xl p-3">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] uppercase tracking-widest text-gray-500 flex items-center gap-1">
-              <Zap size={10} /> Algorithm score
+              <Zap size={10} /> Severity Score
             </p>
             <span className="text-lg font-black text-white">{(composite * 100).toFixed(0)}<span className="text-xs text-gray-500">/100</span></span>
           </div>

@@ -30,6 +30,38 @@ Always return valid JSON only."""
 
 TRIAGE_TEMPLATE = """{system}
 
+ROLE: You are a strict emergency dispatcher. You MUST output ONLY valid JSON matching the exact schema below. Never explain your answer, never write notes, never add introductory text, and never use bullet points.
+
+FEW-SHOT MULTILINGUAL EXAMPLES:
+
+EXAMPLE 1 (Telugu Input):
+VICTIM REPORT:
+- Victim: V-EX-1
+- Reporter packet:
+వరద నీరు ఇంట్లోకి వచ్చేసింది, సహాయం కావాలి.
+- Audio attached: False
+- Image attached: False
+- User hint for type: blank
+- User hint for severity: blank
+
+JSON OUTPUT:
+{{"severity": "urgent", "emergency_type": "flood", "reason": "Flood waters have entered the victim's house, requiring urgent rescue support.", "confidence": 0.9, "people_count": 1, "calamity": "Flood", "age": "Unknown", "medical_conditions": "None", "quick_needs": "Evacuation and rescue support", "voice_transcript": "", "consciousness_status": "Awake", "mobility_status": "Walking", "hazards": "None"}}
+
+EXAMPLE 2 (Malayalam Input):
+VICTIM REPORT:
+- Victim: V-EX-2
+- Reporter packet:
+ഞങ്ങൾക്ക് അടിയന്തിരമായി കുടിവെള്ളവും മരുന്നുകളും വേണം.
+- Audio attached: False
+- Image attached: False
+- User hint for type: blank
+- User hint for severity: blank
+
+JSON OUTPUT:
+{{"severity": "urgent", "emergency_type": "medical", "reason": "Victims require urgent drinking water and medical supplies.", "confidence": 0.85, "people_count": 1, "calamity": "Resource shortage", "age": "Unknown", "medical_conditions": "Unknown", "quick_needs": "Drinking water and medicines", "voice_transcript": "", "consciousness_status": "Awake", "mobility_status": "Walking", "hazards": "None"}}
+
+
+NOW PROCESS THIS REAL EMERGENCY:
 VICTIM REPORT:
 - Victim: {victim_code}
 - Reporter packet:
@@ -43,7 +75,12 @@ Infer the final emergency type and final severity from the full report. Do not s
 Allowed emergency_type values: medical, trapped, flood, fire, unknown
 Allowed severity values: critical, urgent, low
 
-If `has_audio` is True or the message implies spoken text, provide a `voice_transcript`. Otherwise leave empty.
+If `has_audio` is True or the message implies spoken text, provide transcript fields. Otherwise use the typed report where appropriate.
+Transcript fields:
+- `original_transcript`: best-effort transcript in the victim's original language/script, or romanized source words if script is unavailable. Empty string if unavailable.
+- `english_transcript`: faithful English translation of what the victim said. Empty string if unavailable.
+- `victim_statement`: responder-friendly English summary of what the victim said or reported.
+- `voice_transcript`: legacy alias; set it to the same value as `english_transcript`.
 Extract additional details from the message into these fields (DO NOT use null, use "Unknown" or "None" if missing):
 - `people_count`: <int> (default to 1)
 - `calamity`: <string> (specific disaster or event type)
@@ -54,8 +91,11 @@ Extract additional details from the message into these fields (DO NOT use null, 
 - `mobility_status`: <string> (e.g. "Walking", "Trapped", "Unknown")
 - `hazards`: <string> (e.g. "Fire", "Gas Leak", "None")
 
+IMPORTANT: The victim message may be in any language including Telugu, Hindi, Malayalam, or other regional languages.
+You MUST translate and output all fields in ENGLISH only, except original_transcript, which should preserve the victim's original language/script when possible.
+
 Return ONLY this JSON:
-{{"severity": "<critical|urgent|low>", "emergency_type": "<medical|trapped|flood|fire|unknown>", "reason": "<one sentence explaining criticality>", "confidence": <0.0-1.0>, "people_count": <int>, "calamity": "<string>", "age": "<string>", "medical_conditions": "<string>", "quick_needs": "<string>", "voice_transcript": "<string>", "consciousness_status": "<string>", "mobility_status": "<string>", "hazards": "<string>"}}"""
+{{"severity": "<critical|urgent|low>", "emergency_type": "<medical|trapped|flood|fire|unknown>", "reason": "<one sentence explaining criticality>", "confidence": <0.0-1.0>, "people_count": <int>, "calamity": "<string>", "age": "<string>", "medical_conditions": "<string>", "quick_needs": "<string>", "original_transcript": "<string>", "english_transcript": "<string>", "victim_statement": "<string>", "voice_transcript": "<string>", "consciousness_status": "<string>", "mobility_status": "<string>", "hazards": "<string>"}}"""
 
 
 ASSIGNMENT_TEMPLATE = """{system}
@@ -132,21 +172,36 @@ async def _call_gemma(prompt: str, audio_base64: str | None = None, model: str |
             logging.getLogger(__name__).error("Gemma API body: %s", resp.text)
         resp.raise_for_status()
         text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        
         import re
-        # strip markdown code fences
+        # 1. Search for markdown code blocks (e.g. ```json ... ``` or ``` ... ```)
+        code_blocks = re.findall(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+        for block in reversed(code_blocks):
+            try:
+                return json.loads(block.strip())
+            except json.JSONDecodeError:
+                pass
+
+        # 2. If no valid JSON in code blocks, search for any JSON-like structures in the raw text.
+        # Scan for '{' from right to left (since the answer is usually at the end)
+        for i in range(len(text) - 1, -1, -1):
+            if text[i] == '{':
+                for j in range(len(text) - 1, i, -1):
+                    if text[j] == '}':
+                        candidate = text[i:j+1]
+                        try:
+                            return json.loads(candidate)
+                        except json.JSONDecodeError:
+                            continue
+                            
+        # 3. Model truncated mid-JSON fallback
         stripped = re.sub(r'```(?:json)?\s*', '', text).strip()
-        match = re.search(r'\{[\s\S]*\}', stripped)
-        if match:
-            return json.loads(match.group(0))
-        # Model truncated mid-JSON — close the object and parse what we have
         brace_start = stripped.find('{')
         if brace_start != -1:
             partial = stripped[brace_start:]
-            # drop the last incomplete line (no closing quote/comma)
             lines = partial.rstrip().splitlines()
             while lines and not lines[-1].rstrip().endswith(('},', '}', '",', '"')):
                 lines.pop()
-            # strip trailing comma from last field and close the object
             last = lines[-1].rstrip().rstrip(',') if lines else ''
             if lines:
                 lines[-1] = last
@@ -155,6 +210,7 @@ async def _call_gemma(prompt: str, audio_base64: str | None = None, model: str |
                 return json.loads(closed)
             except json.JSONDecodeError:
                 pass
+
         raise ValueError(f"No JSON found in response: {text[:200]}")
 
 
@@ -194,16 +250,22 @@ async def triage_packet(sos: dict) -> dict:
             "age": result.get("age"),
             "medical_conditions": result.get("medical_conditions"),
             "quick_needs": result.get("quick_needs"),
-            "voice_transcript": result.get("voice_transcript"),
+            "original_transcript": result.get("original_transcript"),
+            "english_transcript": result.get("english_transcript"),
+            "victim_statement": result.get("victim_statement"),
+            "voice_transcript": result.get("voice_transcript") or result.get("english_transcript"),
             "consciousness_status": result.get("consciousness_status"),
             "mobility_status": result.get("mobility_status"),
             "hazards": result.get("hazards"),
             "ai_available": True,
         }
     except Exception as e:
-        print(f"GEMMA TRIAGE ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+        try:
+            print(f"GEMMA TRIAGE ERROR: {repr(e)}")
+            import traceback
+            traceback.print_exc()
+        except Exception:
+            pass
         return fallback_triage(sos.get("message"), sos.get("has_audio", False), sos.get("has_image", False))
 
 

@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
     GEMINI_API_KEY: str = ""
     GEMMA_MODEL: str = "gemma-4-26b-a4b-it"
-    GEMMA_TRIAGE_MODEL: str = "gemma-4-e2b-it"
+    GEMMA_TRIAGE_MODEL: str = "gemma-4-26b-a4b-it"
     GEMINI_INSECURE_SKIP_VERIFY: bool = True
 
 
@@ -48,3 +48,9 @@ async def create_tables():
     from db import models  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+async def drop_tables():
+    from db import models  # noqa: F401
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)

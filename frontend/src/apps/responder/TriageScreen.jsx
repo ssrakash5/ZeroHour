@@ -37,6 +37,10 @@ function extractField(message, label) {
   return line ? line.slice(label.length + 1).trim() : ''
 }
 
+function isUseful(value) {
+  return value && value !== 'Unknown' && value !== 'None'
+}
+
 function packetPreview(packet) {
   const message = packet.message || ''
   const baseMessage = message.split('---STRUCTURED_DATA---')[0].trim()
@@ -48,8 +52,12 @@ function packetPreview(packet) {
         const jsonMatch = parts[i].match(/({[\s\S]*?})/)
         if (jsonMatch) {
           const structuredData = JSON.parse(jsonMatch[1])
-          if (structuredData.reason && structuredData.reason !== 'Unknown') {
-            return `AI Summary: ${structuredData.reason}`
+          const preview =
+            structuredData.victim_statement ||
+            structuredData.english_transcript ||
+            structuredData.voice_transcript
+          if (isUseful(preview)) {
+            return preview
           }
           break
         }
@@ -59,11 +67,7 @@ function packetPreview(packet) {
     }
   }
 
-  return (
-    extractField(baseMessage, 'Situation')
-    || (baseMessage.length > 80 ? baseMessage.slice(0, 80) + '...' : baseMessage)
-    || 'No message'
-  )
+  return baseMessage || 'No message'
 }
 
 function ExtractedDetailsTable({ packet }) {
@@ -97,17 +101,17 @@ function ExtractedDetailsTable({ packet }) {
     { label: 'Consciousness', value: structuredData.consciousness_status },
     { label: 'Mobility', value: structuredData.mobility_status },
     { label: 'Hazards', value: structuredData.hazards }
-  ].filter(f => f.value && f.value !== 'Unknown' && f.value !== 'None')
+  ].filter(f => isUseful(f.value))
 
   if (fields.length === 0) return null
 
   return (
-    <div className="mt-3 mb-2 bg-black/20 rounded-lg overflow-hidden border border-ops-border/50">
+    <div className="mt-3 mb-2 bg-ink/5 rounded-lg overflow-hidden border border-ops-border/50">
       <div className="grid grid-cols-2 divide-x divide-y divide-ops-border/50 text-[10px] font-mono">
         {fields.map((f, i) => (
           <div key={i} className="flex flex-col px-2 py-1">
             <span className="text-gray-500">{f.label}</span>
-            <span className="text-gray-300 truncate">{f.value}</span>
+            <span className="text-ink/80 font-semibold truncate">{f.value}</span>
           </div>
         ))}
       </div>
@@ -172,11 +176,11 @@ export default function TriageScreen({ onSelectPacket, dispatched = [], onMissio
       <div className="px-4 pt-3 pb-2">
         <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-0.5">Triage Queue</p>
         <div className="flex items-end gap-4">
-          <p className="text-4xl font-black text-white">
+          <p className="text-4xl font-black text-ink">
             {openCount} <span className="text-xl font-semibold text-gray-500">open</span>
           </p>
           {rescued > 0 && (
-            <p className="text-2xl font-black text-green-400 mb-0.5">
+            <p className="text-2xl font-black text-green-700 mb-0.5">
               {rescued} <span className="text-base font-semibold text-green-600">rescued</span>
             </p>
           )}
@@ -185,9 +189,9 @@ export default function TriageScreen({ onSelectPacket, dispatched = [], onMissio
 
         <div className="flex gap-2 mt-3">
           {[
-            ['all', `All - ${visible.length}`, 'border-ops-border text-white bg-ops-card'],
-            ['critical', `Crit - ${critCount}`, 'border-critical/50 text-critical'],
-            ['urgent', `Urg - ${urgCount}`, 'border-urgent/50 text-urgent'],
+            ['all', `All - ${visible.length}`, 'border-ops-border text-ink bg-ops-card'],
+            ['critical', `Crit - ${critCount}`, 'border-critical/50 text-critical bg-critical/5'],
+            ['urgent', `Urg - ${urgCount}`, 'border-urgent/50 text-urgent bg-urgent/5'],
           ].map(([val, label, cls]) => (
             <button
               key={val}
@@ -240,18 +244,18 @@ export default function TriageScreen({ onSelectPacket, dispatched = [], onMissio
                 )}
               </div>
 
-              <p className="text-sm font-semibold text-white mb-0.5">
+              <p className="text-sm font-semibold text-ink mb-0.5">
                 {pkt.victim_code} - {pkt.emergency_type}
               </p>
               <a 
                 href={`https://www.google.com/maps/search/?api=1&query=${pkt.lat},${pkt.lng}`}
                 target="_blank" rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-[10px] font-mono text-blue-400 hover:text-blue-300 hover:underline mb-2 inline-block"
+                className="text-[10px] font-mono text-blue-600 hover:text-blue-800 hover:underline mb-2 inline-block"
               >
                 📍 {pkt.lat?.toFixed(5)}, {pkt.lng?.toFixed(5)} ({getDistanceKm(self.lat, self.lng, pkt.lat, pkt.lng)} km away)
               </a>
-              <p className="text-xs text-gray-400 leading-relaxed mb-2 line-clamp-3">
+              <p className="text-xs text-ink/80 leading-relaxed mb-2 line-clamp-3">
                 {packetPreview(pkt)}
                 {pkt.model_score ? ` - model ${pkt.model_score}` : ''}
               </p>
@@ -260,12 +264,12 @@ export default function TriageScreen({ onSelectPacket, dispatched = [], onMissio
 
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {pkt.has_audio && (
-                  <span className="rounded-full border border-relay/30 bg-relay/10 px-2 py-0.5 text-[10px] font-mono text-relay">
+                  <span className="rounded-full border border-relay/30 bg-relay/10 px-2 py-0.5 text-[10px] font-mono text-relay font-bold">
                     voice
                   </span>
                 )}
                 {pkt.has_image && (
-                  <span className="rounded-full border border-gray-700 bg-black/20 px-2 py-0.5 text-[10px] font-mono text-gray-300">
+                  <span className="rounded-full border border-ink/20 bg-ink/5 px-2 py-0.5 text-[10px] font-mono text-ink/70">
                     photo
                   </span>
                 )}

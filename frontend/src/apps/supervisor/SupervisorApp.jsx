@@ -66,17 +66,17 @@ function ExtractedDetailsTable({ packet }) {
     { label: 'Age', value: structuredData.age },
     { label: 'Medical', value: structuredData.medical_conditions },
     { label: 'Quick Needs', value: structuredData.quick_needs }
-  ].filter(f => f.value)
+  ].filter(f => f.value && f.value !== 'Unknown' && f.value !== 'None')
 
   if (fields.length === 0) return null
 
   return (
-    <div className="mt-3 bg-black/20 rounded-lg overflow-hidden border border-ops-border/50">
-      <div className="grid grid-cols-2 divide-x divide-y divide-ops-border/50 text-[10px] font-mono">
+    <div className="mt-3 overflow-hidden rounded-lg border border-ops-border/50 bg-black/15">
+      <div className="divide-y divide-ops-border/50 text-[10px] font-mono">
         {fields.map((f, i) => (
-          <div key={i} className="flex flex-col px-2 py-1">
+          <div key={i} className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 px-3 py-2">
             <span className="text-gray-500">{f.label}</span>
-            <span className="text-gray-300 truncate">{f.value}</span>
+            <span className="text-gray-200 text-xs leading-snug break-words">{f.value}</span>
           </div>
         ))}
       </div>
@@ -211,13 +211,13 @@ export default function SupervisorApp() {
   const [resolvedPackets, setResolvedPackets] = useState([])
 
   return (
-    <div className="min-h-screen bg-ops text-white flex flex-col" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div className="min-h-screen bg-[#06080F] text-white flex flex-col" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="border-b border-ops-border px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Activity size={18} className="text-relay" />
             <span className="font-black text-lg tracking-tight">ZeroHour</span>
-            <span className="text-gray-600 text-sm">- Supervisor</span>
+            <span className="text-gray-400 text-sm">- Supervisor</span>
           </div>
           <div className="flex items-center gap-1 bg-ops rounded-lg p-1 border border-ops-border ml-4">
             {[
@@ -228,7 +228,7 @@ export default function SupervisorApp() {
                 key={id}
                 onClick={() => setTab(id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  tab === id ? 'bg-ops-card text-white' : 'text-gray-500 hover:text-gray-300'
+                  tab === id ? 'bg-ops-card text-white shadow-md' : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
                 <Icon size={12} />
@@ -304,10 +304,10 @@ export default function SupervisorApp() {
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             {queueTab === 'pending' && packets.filter(p => p.status !== 'resolved').length === 0 && (
-              <p className="text-gray-600 text-sm text-center pt-8">No active SOS packets.</p>
+              <p className="text-gray-400 text-sm text-center pt-8">No active SOS packets.</p>
             )}
             {queueTab === 'resolved' && resolvedPackets.length === 0 && (
-              <p className="text-gray-600 text-sm text-center pt-8">No resolved incidents yet.</p>
+              <p className="text-gray-400 text-sm text-center pt-8">No resolved incidents yet.</p>
             )}
             {(queueTab === 'pending'
               ? packets.filter(p => p.status !== 'resolved')
@@ -338,8 +338,8 @@ export default function SupervisorApp() {
                 <p className="text-sm font-semibold text-white">{pkt.victim_code} · {pkt.emergency_type}</p>
                 <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{packetPreview(pkt) || '—'}</p>
                 <ExtractedDetailsTable packet={pkt} />
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-[10px] font-mono text-gray-600">
+                <div className="flex items-center justify-between mt-3">
+                  <p className="text-[10px] font-mono text-gray-500">
                     {new Date(pkt.created_at).toLocaleTimeString()}
                   </p>
                   {queueTab === 'pending' && (
@@ -365,7 +365,7 @@ export default function SupervisorApp() {
           <div className="grid grid-cols-5 gap-3 p-4 border-b border-ops-border shrink-0">
             <StatCard label="Pending SOS" value={pending.length} color="#E84040" sub="awaiting assignment" />
             <StatCard label="Critical" value={critical.length} color="#E84040" sub="unassigned" />
-            <StatCard label="Assigned" value={assigned.length} color="#00C9D4" sub="en route" />
+            <StatCard label="Assigned" value={assigned.length} color="#22C55E" sub="en route" />
             <StatCard label="Available" value={available.length} color="#22C55E" sub={`of ${responders.length}`} />
             <StatCard label="Rescued" value={rescuedCount} color="#22C55E" sub="this session" />
           </div>
@@ -390,6 +390,7 @@ export default function SupervisorApp() {
               center={[9.9312, 76.2673]}
               zoom={13}
               height="100%"
+              dark={true}
               onSOSClick={(pkt) => setDispatchTarget(prev => prev?.id === pkt.id ? null : pkt)}
             />
           </div>
@@ -406,7 +407,7 @@ export default function SupervisorApp() {
               Live Assignment Feed
             </p>
             {assignments.length === 0 && (
-              <p className="text-gray-600 text-sm">Assignments appear here in real-time.</p>
+              <p className="text-gray-400 text-sm">Assignments appear here in real-time.</p>
             )}
             <div className="space-y-2">
               {assignments.map((a, i) => (
