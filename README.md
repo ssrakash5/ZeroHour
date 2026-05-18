@@ -9,7 +9,6 @@ A victim speaks Telugu. A drone overhead picks up the SOS over Bluetooth. A resp
 Built for the **Gemma 4 Impact Challenge** · Global Resilience + LiteRT tracks · May 2026.
 
 [![Live Demo](https://img.shields.io/badge/Live-Dashboard-blue?style=for-the-badge)](https://zerohour-frontend-416804666735.us-central1.run.app)
-[![API Docs](https://img.shields.io/badge/API-Documentation-green?style=for-the-badge)](https://zerohour-backend-416804666735.us-central1.run.app/docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 ---
