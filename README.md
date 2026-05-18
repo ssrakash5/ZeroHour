@@ -11,6 +11,17 @@ Built for the **Gemma 4 Impact Challenge** · Global Resilience + LiteRT tracks 
 [![Live Demo](https://img.shields.io/badge/Live-Dashboard-blue?style=for-the-badge)](https://zerohour-frontend-416804666735.us-central1.run.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
+![Flutter](https://img.shields.io/badge/Flutter-02569B?style=flat&logo=flutter&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat&logo=kotlin&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat&logo=redis&logoColor=white)
+![Google Cloud](https://img.shields.io/badge/Google_Cloud-4285F4?style=flat&logo=google-cloud&logoColor=white)
+![Gemma](https://img.shields.io/badge/Gemma_4_E2B-LiteRT-orange?style=flat&logo=google&logoColor=white)
+![BLE](https://img.shields.io/badge/BLE-GATT_Relay-8A2BE2?style=flat)
+
 ---
 
 
@@ -45,13 +56,11 @@ ZeroHour was built so that the next time the towers fall, the response does not.
 
 ### References
 
-\[1\] Sreekumar, R. (2019). *Lessons from Kerala floods: communication failure during disaster*. Economic & Political Weekly, Vol. 54.
+\[1\] Scroll.in (2018). *As Kerala battles flood, social media helps connect anxious relatives, coordinate relief efforts.* [scroll.in](https://scroll.in/article/890699/as-kerala-battles-flood-social-media-helps-connect-anxious-relatives-coordinate-relief-efforts)
 
-\[2\] NDMA India. (2019). *Kerala Floods 2018 — A Report on Rescue, Relief and Rehabilitation*. National Disaster Management Authority.
+\[2\] SDMA Kerala / Institute of Sustainable Development and Governance. *Kerala Floods 2018 — Post-Disaster Report.* [sdma.kerala.gov.in](https://sdma.kerala.gov.in/wp-content/uploads/2020/08/Institute-of-Sustainable-Development-and-Governance-Report.pdf)
 
-\[3\] The Hindu. (2018, August 20). *How WhatsApp became Kerala's lifeline during the floods*. The Hindu.
-
-\[4\] Down To Earth. (2018). *The great Kerala flood: what went wrong with disaster management*. Down To Earth Magazine.
+\[3\] Google AI Edge (2025). *LiteRT — on-device ML inference runtime.* [ai.google.dev/edge/litert](https://ai.google.dev/edge/litert)
 
 ---
 
@@ -241,7 +250,6 @@ flowchart TD
 | Real-time | Redis 7 (pub/sub + live location TTL cache) |
 | Hub AI | Gemma 4 26B (`gemma-4-26b-a4b-it`) via Google AI Studio |
 | Dashboard | React 18 + Vite + Tailwind CSS |
-| Dashboard | React 18 + Vite + Tailwind CSS |
 | Infra | GCP Cloud Run + Cloud SQL + Cloud Memorystore |
 
 ---
@@ -258,7 +266,7 @@ The system uses **Docker** for all components, orchestrated in the cloud:
 2.  **React Frontend**: Served via Nginx on Cloud Run.
 3.  **Database**: PostgreSQL on Cloud SQL.
 4.  **Cache/PubSub**: Redis on Cloud Memorystore.
-5.  **AI Triage**: Gemma 4 27B hosted via Google AI Studio.
+5.  **AI Triage**: Gemma 4 26B hosted via Google AI Studio.
 
 ## Project Structure
 
@@ -310,11 +318,11 @@ ZeroHour/
 
 ### Prerequisites
 
-- Android device with BLE (tested: Samsung A16 5G)
-- Gemma 4 E2B model file at `/sdcard/Android/data/com.zerohour.zerohour_victim/files/gemma.litertlm`
-- Python 3.11+ with BLE support (drone)
+- Android device with BLE (tested: Samsung A16 5G, Android 10+)
+- Python 3.11+ with BLE support (drone relay)
 - Docker Desktop (Postgres + Redis)
 - Node.js 20+ (dashboard)
+- Flutter 3 SDK (only needed if building the app yourself)
 
 ### 1. Backend
 
@@ -335,20 +343,39 @@ python ble_relay.py --hub http://localhost:8001
 # --verbose to log all BLE advertisements
 ```
 
-### 3. Victim app
+### 3. Victim app (Android)
+
+**Option A — Install the pre-built APK (recommended)**
+
+Download the latest APK from [GitHub Releases](../../releases/latest) and sideload it onto your Android device.
+
+**Option B — Build from source**
 
 ```bash
 cd victim_app
-flutter run -d <device-id>
+flutter build apk --release
+# Output: build/app/outputs/flutter-apk/app-release.apk
+adb install build/app/outputs/flutter-apk/app-release.apk
 ```
+
+**Load the Gemma 4 E2B model weights onto the device**
+
+The app requires the Gemma 4 E2B `.litertlm` weights file. Download it from [HuggingFace / Google AI](https://ai.google.dev/gemma) and push it to the device:
+
+```bash
+adb push gemma.litertlm /sdcard/Android/data/com.zerohour.zerohour_victim/files/gemma.litertlm
+```
+
+> The weights file is ~1.5 GB and is not included in this repo.
 
 ### 4. Responder dashboard
 
 ```bash
 cd frontend
 npm install && npm run dev
-# [https://zerohour-frontend-416804666735.us-central1.run.app](https://zerohour-frontend-416804666735.us-central1.run.app)
 ```
+
+Or use the live deployment: [zerohour-frontend-416804666735.us-central1.run.app](https://zerohour-frontend-416804666735.us-central1.run.app)
 
 ---
 
@@ -399,7 +426,7 @@ npm install && npm run dev
 
 1. SOS saved to Postgres → broadcast to supervisor via WebSocket
 2. All `available` responders queried; Haversine distance computed, filtered ≤ 5 km
-3. Top 5 candidates + triage context sent to Gemma 4 27B at hub
+3. Top 5 candidates + triage context sent to Gemma 4 26B at hub
 4. Model returns `{ assign, reason, eta_minutes, confidence }`
 5. Assignment persisted; responder marked `en_route`
 6. Redis pub/sub pushes to responder WebSocket in real time
@@ -416,7 +443,7 @@ Falls back to nearest role-matched responder if hub AI is unavailable.
 | `REDIS_URL` | `redis://...` | Redis (Cloud Memorystore) |
 | `OLLAMA_URL` | N/A | (Using Gemini API instead of Ollama in production) |
 | `OLLAMA_MODEL` | N/A | - |
-| `GEMINI_API_KEY` | required | Google AI Studio API key for Gemma 4 27B hub triage |
+| `GEMINI_API_KEY` | required | Google AI Studio API key for Gemma 4 26B hub triage |
 
 ---
 
