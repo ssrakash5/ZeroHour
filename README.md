@@ -360,13 +360,19 @@ adb install build/app/outputs/flutter-apk/app-release.apk
 
 **Load the Gemma 4 E2B model weights onto the device**
 
-The app requires the Gemma 4 E2B `.litertlm` weights file. Download it from [HuggingFace / Google AI](https://ai.google.dev/gemma) and push it to the device:
+The app requires the Gemma 4 E2B `.litertlm` weights file (~2.5 GB). Download `gemma-4-e2b-it.litertlm` from [Google AI Edge](https://ai.google.dev/gemma) and push it to the device:
 
 ```bash
-adb push gemma.litertlm /sdcard/Android/data/com.zerohour.zerohour_victim/files/gemma.litertlm
+# 1. Launch the app first (so Android creates the data directory with correct ownership)
+# 2. Then push the model — takes ~3 minutes
+adb push gemma-4-e2b-it.litertlm /sdcard/Android/data/com.zerohour.zerohour_victim/files/gemma.litertlm
 ```
 
-> The weights file is ~1.5 GB and is not included in this repo.
+The app will copy the file to internal storage on first launch and show **"Gemma 4 E2B ready"** when done. The internal copy persists across reinstalls of the same signed APK — you only need to push once.
+
+> **Android 14+ note:** The app must be launched at least once before pushing so the system creates the data directory with the correct app ownership. Pushing before first launch will result in a "Source not found" error.
+
+> The weights file is not included in this repo.
 
 ### 4. Responder dashboard
 
