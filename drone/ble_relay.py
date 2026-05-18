@@ -157,7 +157,12 @@ async def handle_gatt_sos(device: BLEDevice, hub_url: str):
                 await broadcast_ack(code)
 
     except Exception as e:
-        print(f"[GATT] Error {addr}: {type(e).__name__}: {e or '(no message)'}")
+        msg = str(e)
+        # Silently drop connection errors from non-ZeroHour BLE devices nearby
+        if "Could not get GATT characteristics" in msg or "Unreachable" in msg:
+            pass
+        else:
+            print(f"[GATT] Error {addr}: {type(e).__name__}: {msg or '(no message)'}")
     finally:
         _connecting.discard(addr)
 
