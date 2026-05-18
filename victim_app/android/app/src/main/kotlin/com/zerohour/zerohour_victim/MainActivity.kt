@@ -65,10 +65,13 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun resolveModelPath(modelPath: String): String {
-        val src = File(modelPath)
-        val dest = File(filesDir, src.name)
+        val fileName = File(modelPath).name
+        val dest = File(filesDir, fileName)
+        val src = getExternalFilesDir(null)?.let { File(it, fileName) }
+            ?.takeIf { it.exists() }
+            ?: File(modelPath).takeIf { it.exists() }
+            ?: throw Exception("Source not found: tried external dir and $modelPath")
         if (dest.exists() && dest.length() == src.length()) return dest.absolutePath
-        if (!src.exists()) throw Exception("Source not found: $modelPath")
         src.copyTo(dest, overwrite = true)
         return dest.absolutePath
     }
