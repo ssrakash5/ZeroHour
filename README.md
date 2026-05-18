@@ -73,7 +73,7 @@ GPT-4V and Claude all require an API call. In a collapsed building with no cell 
 | Runs fully on-device | Disaster = no internet | ✅ 2B params, fits in phone RAM |
 | Natively multimodal | Victims send voice + photos | ✅ Text + Vision + Audio in one model |
 | Audio understanding | Most victims speak, not type | ✅ `Content.AudioFile()` via LiteRT-LM |
-| Open weights | No API key, no privacy risk, works forever | ✅ MIT License |
+| Open weights | No API key, no privacy risk, works forever | ✅ Apache 2.0 |
 | Android-optimized runtime | Needs to run in seconds on a mid-range phone | ✅ LiteRT (`com.google.ai.edge.litertlm`) |
 | Structured output | Triage needs `severity`, `emergency_type`, not prose | ✅ Native function calling / JSON mode |
 
@@ -252,8 +252,6 @@ flowchart TD
 ZeroHour is fully deployed on Google Cloud Platform using a containerized architecture on **Cloud Run**.
 
 *   **Frontend Dashboard**: [https://zerohour-frontend-416804666735.us-central1.run.app](https://zerohour-frontend-416804666735.us-central1.run.app)
-*   **Backend API**: [https://zerohour-backend-416804666735.us-central1.run.app](https://zerohour-backend-416804666735.us-central1.run.app)
-*   **Interactive API Docs**: [https://zerohour-backend-416804666735.us-central1.run.app/docs](https://zerohour-backend-416804666735.us-central1.run.app/docs)
 
 ### Deployment Architecture
 The system uses **Docker** for all components, orchestrated in the cloud:
@@ -328,8 +326,6 @@ pip install -r requirements.txt
 docker compose up -d
 uvicorn main:app --reload --port 8001 --host 0.0.0.0
 ```
-
-API docs: [https://zerohour-backend-416804666735.us-central1.run.app/docs](https://zerohour-backend-416804666735.us-central1.run.app/docs)
 
 ### 2. Drone relay
 
@@ -432,4 +428,4 @@ Falls back to nearest role-matched responder if hub AI is unavailable.
 - **Deadline**: May 18 2026
 - **On-device model**: Gemma 4 E2B (`gemma.litertlm`) via `com.google.ai.edge.litertlm:0.11.0`
 - **Runtime**: Google AI Edge LiteRT — CPU backend, multimodal (vision + audio + text)
-- **Hub model**: Gemma 4 27B (`gemma-4-27b-it`) via Google AI Studio
+- **Hub model**: Gemma 4 26B (`gemma-4-26b-a4b-it`) via Google AI Studio
