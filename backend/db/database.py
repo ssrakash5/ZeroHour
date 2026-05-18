@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
     GEMINI_API_KEY: str = ""
     GEMMA_MODEL: str = "gemma-4-26b-a4b-it"
-    GEMMA_TRIAGE_MODEL: str = "gemma-4-26b-a4b-it"
+    GEMMA_TRIAGE_MODEL: str = "gemma-4-e2b-it"
     GEMINI_INSECURE_SKIP_VERIFY: bool = True
 
 
