@@ -7,11 +7,40 @@
   user-select: none;
 }
 
+:root {
+  --color-ops: #F5F1EB;
+  --color-ops-card: #FFFFFF;
+  --color-ops-border: #E5E0D8;
+}
+
+.supervisor-theme {
+  --color-ops: #06080F;
+  --color-ops-card: #0B0F18;
+  --color-ops-border: #1F2937;
+  background-color: #06080F;
+  background-image: radial-gradient(#60A5FA12 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
 body {
   font-family: 'Inter', sans-serif;
-  background: #0A0E14;
+  background-color: var(--color-ops);
+  background-image: radial-gradient(#2D241E11 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-attachment: fixed;
+  @apply text-[#2D241E] antialiased;
   margin: 0;
   padding: 0;
+}
+
+.glass {
+  @apply bg-white/80 backdrop-blur-sm border border-ops-border shadow-sm;
+}
+
+.glass-dark {
+  background: rgba(18, 18, 28, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .font-mono {
@@ -60,15 +89,15 @@ body {
   100% { background-position: 200% 0; }
 }
 .shimmer {
-  background: linear-gradient(90deg, #E84040 0%, #FF6B6B 50%, #E84040 100%);
+  background: linear-gradient(90deg, #D64545 0%, #E8A354 50%, #D64545 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s linear infinite;
 }
 
 /* Critical pulse on triage card */
 @keyframes critPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 64, 64, 0.4); }
-  50% { box-shadow: 0 0 0 6px rgba(232, 64, 64, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(214, 69, 69, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(214, 69, 69, 0); }
 }
 .crit-pulse {
   animation: critPulse 2s ease-in-out infinite;

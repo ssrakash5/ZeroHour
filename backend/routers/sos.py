@@ -77,17 +77,29 @@ def _triage_request_dict(body: SOSCreate) -> dict:
 import json
 
 def _enrich_message(base_message: str | None, triage: dict) -> str:
-    message = base_message or ""
+    english_summary = (
+        triage.get("victim_statement")
+        or triage.get("english_transcript")
+        or triage.get("message")
+        or triage.get("reason")
+    )
+    message = english_summary or base_message or ""
     
     # Store structured data cleanly
     structured_data = {
+        "original_message": base_message,
+        "original_transcript": triage.get("original_transcript"),
+        "english_transcript": triage.get("english_transcript") or triage.get("voice_transcript"),
+        "victim_statement": triage.get("victim_statement") or triage.get("english_transcript") or base_message,
+        "english_summary": triage.get("message") or english_summary,
         "voice_transcript": triage.get("voice_transcript"),
         "people_count": triage.get("people_count"),
         "reason": triage.get("reason"),
         "calamity": triage.get("calamity"),
         "age": triage.get("age"),
         "medical_conditions": triage.get("medical_conditions"),
-        "quick_needs": triage.get("quick_needs")
+        "quick_needs": triage.get("quick_needs"),
+        "image_analysis": triage.get("image_analysis"),
     }
     
     # Only append if we have actual data

@@ -7,8 +7,15 @@ from routers import sos, responders, ws, ontology, dispatch
 from seed import seed_responders
 
 
+import os
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if os.getenv("FLUSH_DB") == "true":
+        print("!!! FLUSH_DB=true: Dropping and recreating all tables !!!")
+        from db.database import drop_tables
+        await drop_tables()
+        
     await create_tables()
     await seed_responders()
     yield

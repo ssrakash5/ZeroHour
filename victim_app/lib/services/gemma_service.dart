@@ -48,14 +48,17 @@ class GemmaService {
         'SOS CONTEXT:\n$input\n'
         '$mediaHint$audioHint\n\n'
         'Analyze all available input (text, audio, photos). '
-        'Write all text fields in plain English only.\n\n'
+        'Preserve both what the victim said and a responder-friendly English interpretation. '
+        'Write every field in plain English except original_transcript, which should preserve the victim language if you can infer it.\n\n'
         'Single JSON object:\n'
         '{"emergency_type":"medical|fire|flood|structural|violence|unknown",'
         '"severity":"critical|urgent|low",'
         '"people_count":1,'
         '"quick_needs":"immediate needs in one short English phrase",'
         '"message":"one sentence English triage summary",'
-        '"victim_statement":"plain English summary of what the victim said or reported — no romanized foreign words",'
+        '"original_transcript":"best-effort transcript of the victim speech/text in the original language or romanized source words; empty string if unavailable",'
+        '"english_transcript":"faithful English translation of what the victim said; empty string if unavailable",'
+        '"victim_statement":"responder-friendly English summary of what the victim said or reported",'
         '"image_analysis":"one or two English sentences describing what is visible in the photos, or empty string if no photos"}';
 
     try {
@@ -79,6 +82,8 @@ class GemmaService {
       // Gemma sometimes generates duplicate keys (one per input line).
       // Standard jsonDecode picks the LAST value — we want the best native-language one.
       final result = jsonDecode(rawJson) as Map<String, dynamic>;
+      result['original_transcript'] = _bestValue(rawJson, 'original_transcript');
+      result['english_transcript'] = _bestValue(rawJson, 'english_transcript');
       result['victim_statement'] = _bestValue(rawJson, 'victim_statement');
       result['image_analysis'] = _bestValue(rawJson, 'image_analysis');
       return result;

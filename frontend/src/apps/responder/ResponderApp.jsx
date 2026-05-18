@@ -98,7 +98,7 @@ export default function ResponderApp() {
   const self = { ...selfLocation, code: SELF_CODE }
 
   return (
-    <div className="flex flex-col h-full bg-ops">
+    <div className="flex flex-col h-full bg-ops text-ink" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="flex-1 relative overflow-hidden">
         {tab === 'triage' && (
           <TriageScreen

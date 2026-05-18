@@ -70,8 +70,8 @@ function selfIcon() {
   })
 }
 
-// Dark map tile — Stadia Alidade Smooth Dark (free, no key needed)
-const DARK_TILE = 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png'
+// Dark map tile — CartoDB Dark Matter (free, no key needed)
+const DARK_TILE = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
 const TILE_ATTR = '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 
 export default function LiveMap({

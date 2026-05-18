@@ -3,6 +3,14 @@ import { ArrowRight, CheckCircle } from 'lucide-react'
 
 const DEFAULT_SELF = { lat: 9.9312, lng: 76.2673, code: 'R-114' }
 
+function isUseful(value) {
+  return value && value !== 'Unknown' && value !== 'None'
+}
+
+function normalizeText(value) {
+  return (value || '').trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
 function getDistanceKm(lat1, lon1, lat2, lon2) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return null;
   const R = 6371;
@@ -55,8 +63,12 @@ export default function PacketDetailSheet({ packet, self: selfProp, dispatched, 
   }
 
   const {
+    original_message: originalMessage,
+    original_transcript: originalTranscript,
+    english_transcript: structuredEnglishTranscript,
+    victim_statement: victimStatement,
+    english_summary: englishSummary,
     voice_transcript: voiceTranscript,
-    reason: aiReasoning,
     people_count: peopleCount,
     calamity,
     age,
@@ -66,6 +78,14 @@ export default function PacketDetailSheet({ packet, self: selfProp, dispatched, 
     mobility_status: mobility,
     hazards: hazards
   } = structuredData
+  const englishTranscript = structuredEnglishTranscript || voiceTranscript
+  const gemmaStatement = victimStatement || englishSummary
+  const displayMessage = gemmaStatement || englishTranscript || baseMessage || 'No message'
+  const sourceOriginal = originalTranscript || originalMessage
+  const showOriginal =
+    isUseful(sourceOriginal) &&
+    normalizeText(sourceOriginal) !== normalizeText(englishTranscript) &&
+    normalizeText(sourceOriginal) !== normalizeText(gemmaStatement)
 
   // Build a hop path from hops count
   const hopNodes = ['Victim']
@@ -103,10 +123,10 @@ export default function PacketDetailSheet({ packet, self: selfProp, dispatched, 
           </div>
         </div>
 
-        <p className="text-lg font-bold text-white mb-0.5 flex items-center gap-2">
+        <p className="text-lg font-bold text-ink mb-0.5 flex items-center gap-2">
           {packet.victim_code} · {packet.emergency_type}
           {peopleCount && (
-            <span className="text-[10px] font-mono bg-ops text-gray-400 px-2 py-0.5 rounded-full border border-ops-border">
+            <span className="text-[10px] font-mono bg-ops-border/30 text-ink/60 px-2 py-0.5 rounded-full border border-ops-border">
               {peopleCount} {parseInt(peopleCount) === 1 ? 'person' : 'people'}
             </span>
           )}
@@ -114,89 +134,116 @@ export default function PacketDetailSheet({ packet, self: selfProp, dispatched, 
         <a 
           href={`https://www.google.com/maps/search/?api=1&query=${packet.lat},${packet.lng}`}
           target="_blank" rel="noopener noreferrer"
-          className="text-xs font-mono text-blue-400 hover:text-blue-300 hover:underline mb-3 flex items-center gap-1.5 w-fit"
+          className="text-xs font-mono text-blue-600 hover:text-blue-800 hover:underline mb-3 flex items-center gap-1.5 w-fit"
         >
           📍 {packet.lat?.toFixed(5)}, {packet.lng?.toFixed(5)} ({getDistanceKm(self.lat, self.lng, packet.lat, packet.lng)} km away)
         </a>
-        <p className="text-sm text-gray-400 mb-3 whitespace-pre-wrap">"{baseMessage || 'No message'}"</p>
+        <p className="text-sm text-ink/80 mb-3 whitespace-pre-wrap">"{displayMessage}"</p>
 
         {/* Extracted Details Table */}
-        {(peopleCount || calamity || age || medicalConditions || quickNeeds) && (
+        {(originalTranscript || englishTranscript || gemmaStatement || peopleCount || calamity || age || medicalConditions || quickNeeds) && (
           <div className="bg-ops-card border border-ops-border rounded-xl mb-4 overflow-hidden">
             <div className="bg-ops-border/30 px-3 py-2 border-b border-ops-border">
               <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Extracted Details</p>
             </div>
             <div className="divide-y divide-ops-border/50">
+              {showOriginal && (
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5">
+                  <span className="text-xs text-gray-500 font-medium">Original</span>
+                  <span className="text-xs text-ink font-semibold leading-snug break-words">{sourceOriginal}</span>
+                </div>
+              )}
+              {isUseful(englishTranscript) && (
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5">
+                  <span className="text-xs text-gray-500 font-medium">Victim said</span>
+                  <span className="text-xs text-ink font-semibold leading-snug break-words">{englishTranscript}</span>
+                </div>
+              )}
+              {isUseful(gemmaStatement) && gemmaStatement !== englishTranscript && (
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5">
+                  <span className="text-xs text-gray-500 font-medium">Gemma summary</span>
+                  <span className="text-xs text-ink font-semibold leading-snug break-words">{gemmaStatement}</span>
+                </div>
+              )}
               {peopleCount && (
-                <div className="flex px-3 py-2">
-                  <span className="w-1/3 text-xs text-gray-500 font-medium">People</span>
-                  <span className="w-2/3 text-xs text-white font-mono">{peopleCount}</span>
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5">
+                  <span className="text-xs text-gray-500 font-medium">People</span>
+                  <span className="text-xs text-ink font-semibold font-mono">{peopleCount}</span>
                 </div>
               )}
               {calamity && (
-                <div className="flex px-3 py-2">
-                  <span className="w-1/3 text-xs text-gray-500 font-medium">Calamity</span>
-                  <span className="w-2/3 text-xs text-white font-mono">{calamity}</span>
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5">
+                  <span className="text-xs text-gray-500 font-medium">Calamity</span>
+                  <span className="text-xs text-ink font-semibold font-mono break-words">{calamity}</span>
                 </div>
               )}
               {age && (
-                <div className="flex px-3 py-2">
-                  <span className="w-1/3 text-xs text-gray-500 font-medium">Age</span>
-                  <span className="w-2/3 text-xs text-white font-mono">{age}</span>
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5">
+                  <span className="text-xs text-gray-500 font-medium">Age</span>
+                  <span className="text-xs text-ink font-semibold font-mono break-words">{age}</span>
                 </div>
               )}
               {medicalConditions && (
-                <div className="flex px-3 py-2">
-                  <span className="w-1/3 text-xs text-gray-500 font-medium">Medical</span>
-                  <span className="w-2/3 text-xs text-white font-mono">{medicalConditions}</span>
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5">
+                  <span className="text-xs text-gray-500 font-medium">Medical</span>
+                  <span className="text-xs text-ink font-semibold font-mono break-words">{medicalConditions}</span>
                 </div>
               )}
               {quickNeeds && quickNeeds !== 'Unknown' && quickNeeds !== 'None' && (
-                <div className="flex px-3 py-2">
-                  <span className="w-1/3 text-xs text-gray-500 font-medium">Quick Needs</span>
-                  <span className="w-2/3 text-xs text-white font-mono">{quickNeeds}</span>
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5">
+                  <span className="text-xs text-gray-500 font-medium">Quick Needs</span>
+                  <span className="text-xs text-ink font-semibold font-mono break-words">{quickNeeds}</span>
                 </div>
               )}
               {consciousness && consciousness !== 'Unknown' && consciousness !== 'None' && (
-                <div className="flex px-3 py-2">
-                  <span className="w-1/3 text-xs text-gray-500 font-medium">Consciousness</span>
-                  <span className={`w-2/3 text-xs font-mono ${consciousness.toLowerCase().includes('unconscious') ? 'text-critical font-bold' : 'text-white'}`}>{consciousness}</span>
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5">
+                  <span className="text-xs text-gray-500 font-medium">Consciousness</span>
+                  <span className={`text-xs font-mono font-semibold break-words ${consciousness.toLowerCase().includes('unconscious') ? 'text-critical font-bold' : 'text-ink'}`}>{consciousness}</span>
                 </div>
               )}
               {mobility && mobility !== 'Unknown' && mobility !== 'None' && (
-                <div className="flex px-3 py-2">
-                  <span className="w-1/3 text-xs text-gray-500 font-medium">Mobility</span>
-                  <span className={`w-2/3 text-xs font-mono ${mobility.toLowerCase().includes('trapped') ? 'text-critical font-bold' : 'text-white'}`}>{mobility}</span>
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5">
+                  <span className="text-xs text-gray-500 font-medium">Mobility</span>
+                  <span className={`text-xs font-mono font-semibold break-words ${mobility.toLowerCase().includes('trapped') ? 'text-critical font-bold' : 'text-ink'}`}>{mobility}</span>
                 </div>
               )}
               {hazards && hazards !== 'Unknown' && hazards !== 'None' && (
-                <div className="flex px-3 py-2 bg-critical/10">
-                  <span className="w-1/3 text-xs text-critical font-bold">Hazards</span>
-                  <span className="w-2/3 text-xs text-critical font-bold font-mono">{hazards}</span>
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-4 px-3 py-2.5 bg-critical/10">
+                  <span className="text-xs text-critical font-bold">Hazards</span>
+                  <span className="text-xs text-critical font-bold font-mono break-words">{hazards}</span>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {voiceTranscript && (
-          <div className="bg-ops border border-relay/20 rounded-xl p-3 mb-4">
-            <p className="text-[10px] uppercase tracking-widest text-relay mb-1.5 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-relay animate-pulse" />
-              Voice Transcript
+        {showOriginal && (
+          <div className="bg-ops-border/20 border border-ops-border rounded-xl p-3 mb-3">
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5 font-bold">
+              Original Transcript
             </p>
-            <p className="text-xs text-gray-300 italic">"{voiceTranscript}"</p>
+            <p className="text-xs text-ink/80 italic">"{sourceOriginal}"</p>
+          </div>
+        )}
+
+        {isUseful(englishTranscript) && (
+          <div className="bg-ops-border/20 border border-relay/20 rounded-xl p-3 mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-relay mb-1.5 flex items-center gap-1.5 font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-relay animate-pulse" />
+              English Transcript
+            </p>
+            <p className="text-xs text-ink/80 italic">"{englishTranscript}"</p>
           </div>
         )}
 
         {/* Model score */}
-        <div className="bg-ops rounded-xl p-3 mb-4">
+        <div className="bg-ops-border/20 rounded-xl p-3 mb-4 border border-ops-border">
           <div className="flex items-center justify-between mb-1.5">
             <p className="text-[10px] uppercase tracking-widest text-gray-500">AI Score</p>
             <span className="font-mono text-[10px] text-gray-500">Gemma 4</span>
           </div>
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl font-black text-white">{score.toFixed(2)}</span>
+            <span className="text-2xl font-black text-ink">{score.toFixed(2)}</span>
             <div className="flex-1 h-2 bg-ops-border rounded-full overflow-hidden">
               <div
                 className="h-full shimmer rounded-full"
@@ -204,17 +251,10 @@ export default function PacketDetailSheet({ packet, self: selfProp, dispatched, 
               />
             </div>
           </div>
-          
-          {aiReasoning && (
-            <div className="mt-2 pt-2 border-t border-ops-border/50">
-              <p className="text-xs text-gray-400 leading-relaxed"><span className="text-gray-300 font-semibold">Reasoning:</span> {aiReasoning}</p>
-            </div>
-          )}
-
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {tags.map(tag => (
-                <span key={tag} className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-ops-border text-gray-400">
+                <span key={tag} className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-ops-border/40 text-ink/70">
                   {tag}
                 </span>
               ))}
@@ -235,10 +275,10 @@ export default function PacketDetailSheet({ packet, self: selfProp, dispatched, 
                 <div key={`${node}-${i}`} className="flex items-center gap-1">
                   <span className={`font-mono text-xs px-2 py-0.5 rounded-lg border ${
                     isFirst
-                      ? 'border-gray-600 text-gray-400 bg-ops'
+                      ? 'border-ops-border text-ink/70 bg-ops-border/25'
                       : isLast
                       ? 'border-relay text-relay bg-relay/10'
-                      : 'border-ops-border text-gray-500 bg-ops'
+                      : 'border-ops-border text-gray-500 bg-ops-border/10'
                   }`}>
                     {node}
                   </span>
@@ -267,12 +307,12 @@ export default function PacketDetailSheet({ packet, self: selfProp, dispatched, 
             </div>
           ) : alreadyDispatched ? (
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-ops border border-ops-border">
-                <span className="text-gray-400 text-sm">Already en route to another incident</span>
+              <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-ops-border/20 border border-ops-border">
+                <span className="text-gray-500 text-sm font-bold">Already en route to another incident</span>
               </div>
               <button
                 onClick={onClose}
-                className="py-2.5 rounded-xl border border-ops-border text-sm text-gray-400 font-semibold hover:bg-white/5 transition-colors"
+                className="py-2.5 rounded-xl border border-ops-border text-sm text-gray-500 font-semibold hover:bg-black/5 transition-colors"
               >
                 Close
               </button>
@@ -281,13 +321,13 @@ export default function PacketDetailSheet({ packet, self: selfProp, dispatched, 
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="flex-1 py-3.5 rounded-xl border border-ops-border text-sm text-gray-400 font-semibold hover:bg-white/5 transition-colors"
+                className="flex-1 py-3.5 rounded-xl border border-ops-border text-sm text-gray-500 font-semibold hover:bg-black/5 transition-colors"
               >
                 Defer
               </button>
               <button
                 onClick={() => { setAcked(true); onDispatch(packet); setTimeout(onClose, 1200) }}
-                className="flex-[2] py-3.5 rounded-xl bg-relay hover:bg-relay/90 transition-colors text-ops text-sm font-bold flex items-center justify-center gap-2"
+                className="flex-[2] py-3.5 rounded-xl bg-relay hover:bg-relay/90 transition-colors text-white text-sm font-bold flex items-center justify-center gap-2"
               >
                 <span className="text-base">🛡</span>
                 Acknowledge · dispatch me

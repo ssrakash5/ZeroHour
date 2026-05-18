@@ -39,6 +39,12 @@ class _SendingScreenState extends State<SendingScreen> {
 
   late List<_Step> _steps;
 
+  String _shortField(String? value, int maxLength) {
+    final text = value ?? '';
+    if (text.length <= maxLength) return text;
+    return '${text.substring(0, maxLength)}...';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -86,9 +92,9 @@ class _SendingScreenState extends State<SendingScreen> {
         }
         print('─────────────────────────────────────────');
 
-        if (GemmaService.instance.isReady && msg.isNotEmpty) {
+        if (GemmaService.instance.isReady && (msg.isNotEmpty || hasAudio || hasImage)) {
           _deviceTriage = await GemmaService.instance.triage(
-            msg,
+            msg.isNotEmpty ? msg : 'Victim submitted emergency audio/photo evidence.',
             imagePaths: imagePaths.isNotEmpty ? imagePaths : null,
             audioPath: audioPath,
             audioDurationSeconds: recordingSeconds > 0 ? recordingSeconds : null,
@@ -173,6 +179,10 @@ class _SendingScreenState extends State<SendingScreen> {
           'quick_needs': (_deviceTriage?['quick_needs'] as String? ?? '').length > 80
               ? (_deviceTriage!['quick_needs'] as String).substring(0, 80)
               : (_deviceTriage?['quick_needs'] ?? ''),
+          if ((_deviceTriage?['original_transcript'] as String? ?? '').isNotEmpty)
+            'original_transcript': _shortField(_deviceTriage?['original_transcript'] as String?, 90),
+          if ((_deviceTriage?['english_transcript'] as String? ?? '').isNotEmpty)
+            'english_transcript': _shortField(_deviceTriage?['english_transcript'] as String?, 120),
           if (_victimStatement.isNotEmpty) 'victim_statement':
               _victimStatement.length > 120 ? '${_victimStatement.substring(0, 120)}…' : _victimStatement,
         };
@@ -251,6 +261,10 @@ class _SendingScreenState extends State<SendingScreen> {
       'quick_needs': (_deviceTriage?['quick_needs'] as String? ?? '').length > 80
           ? (_deviceTriage!['quick_needs'] as String).substring(0, 80)
           : (_deviceTriage?['quick_needs'] ?? ''),
+      if ((_deviceTriage?['original_transcript'] as String? ?? '').isNotEmpty)
+        'original_transcript': _shortField(_deviceTriage?['original_transcript'] as String?, 90),
+      if ((_deviceTriage?['english_transcript'] as String? ?? '').isNotEmpty)
+        'english_transcript': _shortField(_deviceTriage?['english_transcript'] as String?, 120),
       if (_victimStatement.isNotEmpty) 'victim_statement':
           _victimStatement.length > 120 ? '${_victimStatement.substring(0, 120)}…' : _victimStatement,
     };
