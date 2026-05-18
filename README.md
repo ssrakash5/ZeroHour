@@ -250,7 +250,7 @@ flowchart TD
 | Real-time | Redis 7 (pub/sub + live location TTL cache) |
 | Hub AI | Gemma 4 26B (`gemma-4-26b-a4b-it`) via Google AI Studio |
 | Dashboard | React 18 + Vite + Tailwind CSS |
-| Infra | GCP Cloud Run + Cloud SQL + Cloud Memorystore |
+| Infra | GCP Cloud Run + Supabase (PostgreSQL) + Upstash (Redis) |
 
 ---
 
@@ -264,8 +264,8 @@ ZeroHour is fully deployed on Google Cloud Platform using a containerized archit
 The system uses **Docker** for all components, orchestrated in the cloud:
 1.  **FastAPI Backend**: Runs on Cloud Run, scaling from 0 to 3 instances.
 2.  **React Frontend**: Served via Nginx on Cloud Run.
-3.  **Database**: PostgreSQL on Cloud SQL.
-4.  **Cache/PubSub**: Redis on Cloud Memorystore.
+3.  **Database**: PostgreSQL on Supabase.
+4.  **Cache/PubSub**: Redis on Upstash.
 5.  **AI Triage**: Gemma 4 26B hosted via Google AI Studio.
 
 ## Project Structure
@@ -445,11 +445,10 @@ Falls back to nearest role-matched responder if hub AI is unavailable.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `postgresql+asyncpg://...` | Postgres (Cloud SQL) |
-| `REDIS_URL` | `redis://...` | Redis (Cloud Memorystore) |
-| `OLLAMA_URL` | N/A | (Using Gemini API instead of Ollama in production) |
-| `OLLAMA_MODEL` | N/A | - |
-| `GEMINI_API_KEY` | required | Google AI Studio API key for Gemma 4 26B hub triage |
+| `DATABASE_URL` | `postgresql+psycopg://...` | Postgres (Supabase) |
+| `REDIS_URL` | `rediss://...` | Redis (Upstash) |
+| `GEMINI_API_KEY` | required | Google AI Studio API key for Gemma 4 26B hub model |
+| `GEMMA_MODEL` | `gemma-4-26b-a4b-it` | Gemma 4 26B model used at the hub for assignment and triage |
 
 ---
 
